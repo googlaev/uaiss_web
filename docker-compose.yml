@@ -1,0 +1,9 @@
+services:
+  web:
+    build: .
+    container_name: uaiss_web_app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./exams.db:/app/exams.db
+    restart: unless-stopped

@@ -248,6 +248,11 @@
             transform: scale(0.98);
         }
 
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .error-message {
             background: rgba(239, 68, 68, 0.1);
             color: var(--danger);
@@ -327,6 +332,12 @@
             font-size: 28px;
             font-weight: 700;
             color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
         }
 
         .exam-card {
@@ -595,115 +606,55 @@
         .sick-color { color: var(--sick); }
         .trip-color { color: var(--business-trip); }
         .vacation-color { color: var(--vacation); }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, var(--border) 25%, var(--bg-primary) 50%, var(--border) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 8px;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script>
-        // ========== ПОЛНЫЕ ДАННЫЕ ПО ВСЕМ СОТРУДНИКАМ ==========
-        const ALL_EMPLOYEES = {
-            currentUser: {
-                id: 1,
-                name: "Алексей Смирнов",
-                role: "employee"
-            },
-            admin: {
-                id: 2,
-                name: "Екатерина Морозова",
-                role: "admin"
-            },
-            other: [
-                { id: 3, name: "Анна Козлова" },
-                { id: 4, name: "Дмитрий Иванов" },
-                { id: 5, name: "Сергей Петров" },
-                { id: 6, name: "Мария Сидорова" },
-                { id: 7, name: "Игорь Васильев" }
-            ]
-        };
+        
+        const API_BASE = 'http://localhost:8000/api/v1';
 
-        // Экзамены всех сотрудников
-        const ALL_EXAMS = {
-            1: [ // Алексей Смирнов
-                { id: 1, type: "ОТ", exam_type_id: 4, date: "15.03.2023", duration: 36, status: "expiring", days_left: 25, expires_at: "15.03.2026" },
-                { id: 2, type: "ПТМ", exam_type_id: 9, date: "10.01.2026", duration: 6, status: "active", days_left: 280, expires_at: "10.07.2026" }
-            ],
-            2: [ // Екатерина Морозова
-                { id: 1, type: "ОТ", exam_type_id: 4, date: "15.03.2023", duration: 36, status: "expiring", days_left: 25, expires_at: "15.03.2026" },
-                { id: 2, type: "ЭБ", exam_type_id: 8, date: "01.12.2024", duration: 12, status: "expired", days_left: -45, expires_at: "01.12.2025" },
-                { id: 3, type: "ПП", exam_type_id: 7, date: "20.01.2025", duration: 36, status: "active", days_left: 320, expires_at: "20.01.2028" }
-            ],
-            3: [ // Анна Козлова
-                { id: 1, type: "ОТ", exam_type_id: 4, date: "10.03.2024", duration: 36, status: "expiring", days_left: 18, expires_at: "10.03.2027" },
-                { id: 2, type: "ПТМ", exam_type_id: 9, date: "01.12.2025", duration: 6, status: "expiring", days_left: 5, expires_at: "01.06.2026" }
-            ],
-            4: [ // Дмитрий Иванов
-                { id: 1, type: "ЭБ", exam_type_id: 8, date: "01.12.2024", duration: 12, status: "expiring", days_left: 8, expires_at: "01.12.2025" },
-                { id: 2, type: "ОТБ", exam_type_id: 5, date: "20.01.2025", duration: 36, status: "active", days_left: 250, expires_at: "20.01.2028" }
-            ],
-            5: [ // Сергей Петров
-                { id: 1, type: "ПП", exam_type_id: 7, date: "05.03.2024", duration: 36, status: "expiring", days_left: 15, expires_at: "05.03.2027" }
-            ],
-            6: [ // Мария Сидорова
-                { id: 1, type: "ОТ", exam_type_id: 4, date: "15.02.2025", duration: 36, status: "active", days_left: 350, expires_at: "15.02.2028" }
-            ],
-            7: [ // Игорь Васильев
-                { id: 1, type: "А1", exam_type_id: 1, date: "01.01.2023", duration: 60, status: "expired", days_left: -120, expires_at: "01.01.2028" }
-            ]
-        };
-
-        // Статусы всех сотрудников
-        const ALL_STATUSES = {
-            1: [ // Алексей Смирнов
-                { id: 1, status: "🤒 Больничный", start_date: "01.04.2026", end_date: "07.04.2026", duration: 6 }
-            ],
-            2: [ // Екатерина Морозова
-                { id: 1, status: "✈️ Командировка", start_date: "15.03.2026", end_date: "20.03.2026", duration: 5 },
-                { id: 2, status: "🏖️ Отпуск", start_date: "01.05.2026", end_date: "14.05.2026", duration: 13 }
-            ],
-            3: [ // Анна Козлова
-                { id: 1, status: "✈️ Командировка", start_date: "10.04.2026", end_date: "17.04.2026", duration: 7 }
-            ],
-            4: [ // Дмитрий Иванов
-                { id: 1, status: "🤒 Больничный", start_date: "05.04.2026", end_date: null, duration: null }
-            ],
-            5: [ // Сергей Петров
-                { id: 1, status: "🏖️ Отпуск", start_date: "01.04.2026", end_date: "15.04.2026", duration: 14 }
-            ],
-            6: [], // Мария Сидорова - без статуса
-            7: [ // Игорь Васильев
-                { id: 1, status: "🤒 Больничный", start_date: "01.04.2026", end_date: "10.04.2026", duration: 9 }
-            ]
-        };
-
-        const MOCK_EXAM_TYPES = [
-            { id: 1, name: "А1", emoji: "🔬", duration: 60 },
-            { id: 2, name: "Б21", emoji: "📋", duration: 60 },
-            { id: 3, name: "Б26", emoji: "📊", duration: 60 },
-            { id: 4, name: "ОТ", emoji: "🦺", duration: 36 },
-            { id: 5, name: "ОТБ", emoji: "🛡️", duration: 36 },
-            { id: 6, name: "СИЗ", emoji: "🥽", duration: 36 },
-            { id: 7, name: "ПП", emoji: "🚒", duration: 36 },
-            { id: 8, name: "ЭБ", emoji: "💡", duration: 12 },
-            { id: 9, name: "ПТМ", emoji: "🔥", duration: 6 }
-        ];
-
-        // ========== APP STATE ==========
-        let isAuthenticated = false;
-        let currentUser = null;
+        // глобальные переменные
+        let isAuthenticated = false;//авторизация
+        let currentUser = null;//данные пользователя
+        let authToken = localStorage.getItem('authToken');
         let currentView = 'home';
         let currentToast = null;
         let isDarkMode = localStorage.getItem('darkMode') === 'true';
         let loginError = null;
         let modalType = null;
         let selectedExamType = null;
-        let examDate = '';
-        let statusFilter = 'all';
+        let statusFilter = 'all';//фильтр статусов в упр.
         
-        let savedLogin = '';
-        let savedPassword = '';
+        // Данные загруженные с API
+        let myExams = [];
+        let myStatuses = [];
+        let examTypes = [];
+        let statusStats = null;
+        let expiringExams = [];
+        let allEmployeesStatuses = [];
+        let isLoading = false;
 
-        // ========== UTILITIES ==========
+        //переключение темы (темная/светлая)
         function setDarkMode(enabled) {
             isDarkMode = enabled;
             if (enabled) {
@@ -714,7 +665,7 @@
             localStorage.setItem('darkMode', enabled);
             render();
         }
-
+        //уведомления
         function showToast(message, duration = 3000) {
             currentToast = message;
             render();
@@ -724,175 +675,241 @@
             }, duration);
         }
 
-        function login(login, password) {
-            if (login === "user@uaiss.ru" && password === "123456") {
-                currentUser = { ...ALL_EMPLOYEES.currentUser };
-                isAuthenticated = true;
-                loginError = null;
-                showToast(` Добро пожаловать, ${currentUser.name}!`);
-                render();
-                return true;
-            } 
-            else if (login === "admin@uaiss.ru" && password === "admin123") {
-                currentUser = { ...ALL_EMPLOYEES.admin };
-                isAuthenticated = true;
-                loginError = null;
-                showToast(` Добро пожаловать, ${currentUser.name} (Администратор)!`);
-                render();
-                return true;
-            } 
-            else {
-                loginError = "Неверный логин или пароль";
+        //API запросы 
+        async function apiRequest(endpoint, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers
+            });
+            
+            if (response.status === 401) {
+                // Токен просрочен - выходим
+                logout();
+                throw new Error('Сессия истекла');
+            }
+            
+            return response;
+        }
+
+        // вход в систему
+        async function login(loginValue, passwordValue) {
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login: loginValue, password: passwordValue })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    authToken = data.access_token;
+                    localStorage.setItem('authToken', authToken);
+                    currentUser = {
+                        user_id: data.user_id,
+                        name: data.full_name,
+                        role: data.role
+                    };
+                    isAuthenticated = true;
+                    loginError = null;
+                    
+                    // Загружаем все данные
+                    await loadAllData();
+                    
+                    showToast(`👋 Добро пожаловать, ${currentUser.name}!`);
+                    render();
+                    return true;
+                } else {
+                    loginError = data.detail || "Неверный логин или пароль";
+                    render();
+                    return false;
+                }
+            } catch (error) {
+                loginError = "Ошибка соединения с сервером";
                 render();
                 return false;
             }
         }
 
+        //загрузка всех данных 
+        async function loadAllData() {
+            isLoading = true;
+            render();
+            
+            try {
+                // Загружаем типы экзаменов
+                const typesRes = await apiRequest('/exam-types');
+                if (typesRes.ok) examTypes = await typesRes.json();
+                
+                // Загружаем мои экзамены
+                const examsRes = await apiRequest('/exams/my');
+                if (examsRes.ok) myExams = await examsRes.json();
+                
+                // Загружаем мои статусы
+                const statusRes = await apiRequest('/status/my');
+                if (statusRes.ok) myStatuses = await statusRes.json();
+                
+                // Загружаем статистику
+                const statsRes = await apiRequest('/status/current');
+                if (statsRes.ok) statusStats = await statsRes.json();
+                
+                // Загружаем истекающие экзамены
+                const expiringRes = await apiRequest('/exams/expiring');
+                if (expiringRes.ok) expiringExams = await expiringRes.json();
+                
+                // Загружаем статусы всех сотрудников
+                const allStatusRes = await apiRequest('/status/month');
+                if (allStatusRes.ok) allEmployeesStatuses = await allStatusRes.json();
+                
+            } catch (error) {
+                console.error('Ошибка загрузки данных:', error);
+                showToast('❌ Ошибка загрузки данных');
+            }
+            
+            isLoading = false;
+            render();
+        }
+
+        //добавление экзамена 
+        async function addExam(examTypeId, date) {
+            try {
+                const response = await apiRequest('/exams', {
+                    method: 'POST',
+                    body: JSON.stringify({ exam_type_id: examTypeId, date: date })
+                });
+                
+                if (response.ok) {
+                    showToast('✅ Экзамен успешно добавлен');
+                    await loadAllData();
+                    currentView = 'exams';
+                    render();
+                    return true;
+                } else {
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail || 'Ошибка добавления'}`);
+                    return false;
+                }
+            } catch (error) {
+                showToast('❌ Ошибка соединения');
+                return false;
+            }
+        }
+
+
+        async function addStatus(statusType, startDate, endDate = null) {
+            try {
+                const response = await apiRequest('/status', {
+                    method: 'POST',
+                    body: JSON.stringify({ 
+                        status: statusType, 
+                        start_date: startDate, 
+                        end_date: endDate 
+                    })
+                });
+                
+                if (response.ok) {
+                    showToast('✅ Статус успешно добавлен');
+                    await loadAllData();
+                    render();
+                    return true;
+                } else {
+                    showToast('❌ Ошибка добавления статуса');
+                    return false;
+                }
+            } catch (error) {
+                showToast('❌ Ошибка соединения');
+                return false;
+            }
+        }
+
+        //удаление предыдущего статуса 
+        async function deleteLastStatus() {
+            try {
+                const response = await apiRequest('/status/last', {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showToast('✅ Последний статус удалён');
+                    await loadAllData();
+                    render();
+                    return true;
+                } else {
+                    showToast('❌ Ошибка удаления');
+                    return false;
+                }
+            } catch (error) {
+                showToast('❌ Ошибка соединения');
+                return false;
+            }
+        }
+
+        //закрытие больничного 
+        async function closeSickLeave(statusId) {
+            try {
+                const response = await apiRequest(`/status/${statusId}/close`, {
+                    method: 'PATCH'
+                });
+                
+                if (response.ok) {
+                    showToast('✅ Больничный закрыт');
+                    await loadAllData();
+                    render();
+                    return true;
+                } else {
+                    showToast('❌ Ошибка закрытия');
+                    return false;
+                }
+            } catch (error) {
+                showToast('❌ Ошибка соединения');
+                return false;
+            }
+        }
+
+        //выход из системы
         function logout() {
+            authToken = null;
+            localStorage.removeItem('authToken');
             isAuthenticated = false;
             currentUser = null;
             currentView = 'home';
             loginError = null;
-            statusFilter = 'all';
-            savedLogin = '';
-            savedPassword = '';
-            showToast("👋 Вы вышли из системы");
+            myExams = [];
+            myStatuses = [];
+            examTypes = [];
+            statusStats = null;
+            showToast('👋 Вы вышли из системы');
             render();
         }
 
+        // возврашение данных
         function getCurrentExams() {
-            return ALL_EXAMS[currentUser?.id] || [];
+            return myExams;
         }
 
         function getCurrentStatusHistory() {
-            return ALL_STATUSES[currentUser?.id] || [];
+            return myStatuses;
         }
 
-        function addExam(examTypeId, date) {
-            const examType = MOCK_EXAM_TYPES.find(t => t.id === parseInt(examTypeId));
-            if (!examType) return false;
-            
-            const today = new Date();
-            const examDateObj = new Date(date);
-            if (examDateObj > today) {
-                showToast("❌ Нельзя выбрать дату из будущего");
-                return false;
-            }
-            
-            const expiresDate = new Date(examDateObj);
-            expiresDate.setMonth(expiresDate.getMonth() + examType.duration);
-            const daysLeft = Math.ceil((expiresDate - today) / (1000 * 60 * 60 * 24));
-            let status = 'active';
-            if (daysLeft <= 30 && daysLeft > 0) status = 'expiring';
-            if (daysLeft <= 0) status = 'expired';
-            
-            const newExam = {
-                id: ALL_EXAMS[currentUser.id].length + 1,
-                type: examType.name,
-                exam_type_id: examType.id,
-                date: date,
-                duration: examType.duration,
-                status: status,
-                days_left: daysLeft,
-                expires_at: expiresDate.toLocaleDateString('ru-RU')
-            };
-            
-            ALL_EXAMS[currentUser.id].unshift(newExam);
-            showToast("✅ Экзамен успешно добавлен");
-            return true;
+        function getActiveStatus() {
+            return myStatuses.find(s => s.is_active === true);
         }
 
-        function changeStatus(statusType, startDate = null, endDate = null) {
-            const today = new Date().toLocaleDateString('ru-RU');
-            const newStatus = {
-                id: ALL_STATUSES[currentUser.id].length + 1,
-                status: statusType,
-                start_date: startDate || today,
-                end_date: endDate || null,
-                duration: endDate ? Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24)) : null
-            };
-            
-            ALL_STATUSES[currentUser.id].unshift(newStatus);
-            showToast("✅ Статус успешно изменён");
-            render();
+        function getExamTypeEmoji(typeName) {
+            const examType = examTypes.find(t => t.name === typeName);
+            return examType?.emoji || '📚';
         }
 
-        function deleteLastStatus() {
-            if (ALL_STATUSES[currentUser.id].length > 0) {
-                ALL_STATUSES[currentUser.id].shift();
-                showToast("✅ Последний статус удалён");
-                render();
-            }
-        }
-
-        function getAllEmployeesWithStatus() {
-            const allEmployees = [
-                { id: 1, name: "Алексей Смирнов" },
-                { id: 2, name: "Екатерина Морозова" },
-                { id: 3, name: "Анна Козлова" },
-                { id: 4, name: "Дмитрий Иванов" },
-                { id: 5, name: "Сергей Петров" },
-                { id: 6, name: "Мария Сидорова" },
-                { id: 7, name: "Игорь Васильев" }
-            ];
-
-            return allEmployees.map(emp => {
-                const statuses = ALL_STATUSES[emp.id] || [];
-                const activeStatus = statuses.find(s => !s.end_date);
-                let currentStatus = "🟢 На рабочем месте";
-                let statusType = "working";
-                
-                if (activeStatus) {
-                    if (activeStatus.status.includes("Больничный")) {
-                        currentStatus = "🤒 Больничный";
-                        statusType = "sick";
-                    } else if (activeStatus.status.includes("Командировка")) {
-                        currentStatus = "✈️ Командировка";
-                        statusType = "trip";
-                    } else if (activeStatus.status.includes("Отпуск")) {
-                        currentStatus = "🏖️ Отпуск";
-                        statusType = "vacation";
-                    }
-                }
-                
-                return { ...emp, currentStatus, statusType };
-            });
-        }
-
-        function getAllExpiringExams() {
-            const allEmployees = getAllEmployeesWithStatus();
-            const expiringList = [];
-            
-            allEmployees.forEach(emp => {
-                const exams = ALL_EXAMS[emp.id] || [];
-                const expiringExams = exams.filter(e => e.status === 'expiring' || e.status === 'expired');
-                expiringExams.forEach(exam => {
-                    expiringList.push({
-                        employeeName: emp.name,
-                        employeeId: emp.id,
-                        examType: exam.type,
-                        daysLeft: exam.days_left,
-                        expiresAt: exam.expires_at,
-                        status: exam.status
-                    });
-                });
-            });
-            
-            return expiringList.sort((a, b) => a.daysLeft - b.daysLeft);
-        }
-
-        function getStatusStats() {
-            const employees = getAllEmployeesWithStatus();
-            return {
-                total: employees.length,
-                working: employees.filter(e => e.statusType === 'working').length,
-                sick: employees.filter(e => e.statusType === 'sick').length,
-                trip: employees.filter(e => e.statusType === 'trip').length,
-                vacation: employees.filter(e => e.statusType === 'vacation').length
-            };
-        }
-
-        // ========== COMPONENTS ==========
+        // экран входа
         function LoginScreen() {
             return `
                 <div class="login-container">
@@ -904,12 +921,12 @@
                         <form class="login-form" onsubmit="event.preventDefault(); window.handleLogin()">
                             <div class="form-group">
                                 <label class="form-label">Логин</label>
-                                <input type="email" class="form-input" id="loginInput" placeholder="user@uaiss.ru" autocomplete="username" value="${savedLogin.replace(/"/g, '&quot;')}">
+                                <input type="text" class="form-input" id="loginInput" placeholder="user@uaiss.ru" autocomplete="username" value="">
                             </div>
                             
                             <div class="form-group">
                                 <label class="form-label">Пароль</label>
-                                <input type="password" class="form-input" id="passwordInput" placeholder="••••••" autocomplete="current-password" value="${savedPassword.replace(/"/g, '&quot;')}">
+                                <input type="password" class="form-input" id="passwordInput" placeholder="••••••" autocomplete="current-password">
                             </div>
                             
                             <button type="submit" class="login-btn">Войти</button>
@@ -921,24 +938,25 @@
                             <div style="margin-bottom: 8px;">🔑 Тестовые данные:</div>
                             <div>👤 Сотрудник: user@uaiss.ru / 123456</div>
                             <div>👑 Администратор: admin@uaiss.ru / admin123</div>
+                            <div style="margin-top: 8px;">👥 Другие сотрудники: фамилия@uaiss.ru / 123456</div>
                         </div>
                     </div>
                 </div>
             `;
         }
 
+        //главный экран
         function HomeView() {
-            const exams = getCurrentExams();
-            const expiringCount = exams.filter(e => e.status === 'expiring').length;
-            const statusHistory = getCurrentStatusHistory();
-            const activeStatus = statusHistory.find(s => !s.end_date);
-            const activeStatusText = activeStatus ? activeStatus.status : "На рабочем месте 🟢";
-            const upcomingExams = exams.filter(e => e.status === 'expiring').slice(0, 3);
-            const soonestExam = exams.filter(e => e.status === 'expiring').sort((a, b) => a.days_left - b.days_left)[0];
+            if (isLoading) {
+                return `<div class="loading">⏳ Загрузка данных...</div>`;
+            }
             
-            const allExpiringExams = currentUser.role === 'admin' ? getAllExpiringExams() : [];
-            const expiringByOthers = allExpiringExams.filter(e => e.employeeId !== currentUser.id);
-            const stats = getStatusStats();
+            const expiringCount = myExams.filter(e => e.status === 'Истекает').length;
+            const activeStatus = getActiveStatus();
+            const activeStatusText = activeStatus ? activeStatus.status : "🟢 На рабочем месте";
+            const upcomingExams = myExams.filter(e => e.status === 'Истекает').slice(0, 3);
+            
+            const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0 };
             
             return `
                 <div class="content">
@@ -951,28 +969,26 @@
                     </div>
                     
                     <div class="status-stats-card">
-                        <div class="status-stats-title">
-                            📊 Статистика статусов
-                        </div>
+                        <div class="status-stats-title">📊 Статистика статусов</div>
                         <div class="status-stats-grid">
-                            <div class="status-stat-item ${statusFilter === 'working' ? 'active' : ''}" onclick="window.setStatusFilterAndGo('working')">
+                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('working')">
                                 <div class="status-stat-emoji">🟢</div>
-                                <div class="status-stat-count working-color">${stats.working}</div>
+                                <div class="status-stat-count working-color">${stats.working || 0}</div>
                                 <div class="status-stat-label">Работают</div>
                             </div>
-                            <div class="status-stat-item ${statusFilter === 'sick' ? 'active' : ''}" onclick="window.setStatusFilterAndGo('sick')">
+                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('sick')">
                                 <div class="status-stat-emoji">🤒</div>
-                                <div class="status-stat-count sick-color">${stats.sick}</div>
+                                <div class="status-stat-count sick-color">${stats.sick || 0}</div>
                                 <div class="status-stat-label">Больничный</div>
                             </div>
-                            <div class="status-stat-item ${statusFilter === 'trip' ? 'active' : ''}" onclick="window.setStatusFilterAndGo('trip')">
+                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('trip')">
                                 <div class="status-stat-emoji">✈️</div>
-                                <div class="status-stat-count trip-color">${stats.trip}</div>
+                                <div class="status-stat-count trip-color">${stats.trip || 0}</div>
                                 <div class="status-stat-label">Командировка</div>
                             </div>
-                            <div class="status-stat-item ${statusFilter === 'vacation' ? 'active' : ''}" onclick="window.setStatusFilterAndGo('vacation')">
+                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('vacation')">
                                 <div class="status-stat-emoji">🏖️</div>
-                                <div class="status-stat-count vacation-color">${stats.vacation}</div>
+                                <div class="status-stat-count vacation-color">${stats.vacation || 0}</div>
                                 <div class="status-stat-label">Отпуск</div>
                             </div>
                         </div>
@@ -980,7 +996,7 @@
                     
                     <div class="stats-grid">
                         <div class="stat-card" onclick="window.changeView('exams')">
-                            <div class="stat-value">${exams.length}</div>
+                            <div class="stat-value">${myExams.length}</div>
                             <div class="stat-label">Мои экзамены</div>
                         </div>
                         <div class="stat-card" onclick="window.changeView('exams')">
@@ -994,39 +1010,17 @@
                             <div class="card-title">📋 Мои ближайшие экзамены</div>
                             <span style="font-size: 12px; color: var(--text-secondary);">→</span>
                         </div>
-                        ${upcomingExams.length > 0 ? upcomingExams.map(exam => {
-                            const examType = MOCK_EXAM_TYPES.find(t => t.name === exam.type);
-                            return `
+                        ${upcomingExams.length > 0 ? upcomingExams.map(exam => `
                             <div class="exam-card" style="margin-bottom: 12px;">
-                                <div class="exam-icon">${examType?.emoji || '📚'}</div>
+                                <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
                                 <div class="exam-info">
                                     <div class="exam-name">${exam.type}</div>
                                     <div class="exam-date">Истекает: ${exam.expires_at} • ${exam.days_left} дней</div>
                                 </div>
-                                <span class="badge ${exam.status === 'expiring' ? 'badge-expiring' : 'badge-active'}">${exam.status === 'expiring' ? '⚠️ Истекает' : '✅ Действующий'}</span>
+                                <span class="badge badge-expiring">⚠️ ${exam.status}</span>
                             </div>
-                        `}).join('') : '<div class="empty-state" style="padding: 20px;"><div class="empty-emoji">✅</div><p>Нет истекающих экзаменов</p></div>'}
-                        ${soonestExam && upcomingExams.length > 0 ? `
-                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; color: var(--warning);">
-                                ⚡ Ближайший: ${soonestExam.type} — через ${soonestExam.days_left} дней
-                            </div>
-                        ` : ''}
+                        `).join('') : '<div class="empty-state" style="padding: 20px;"><p>✅ Нет истекающих экзаменов</p></div>'}
                     </div>
-                    
-                    ${currentUser.role === 'admin' && expiringByOthers.length > 0 ? `
-                        <div class="card">
-                            <div class="card-header">
-                                <div class="card-title">⚠️ Истекающие экзамены у сотрудников</div>
-                            </div>
-                            ${expiringByOthers.slice(0, 3).map(item => `
-                                <div class="expiring-exam-item">
-                                    <div style="font-weight: 600;">👤 ${item.employeeName}</div>
-                                    <div style="font-size: 13px; margin-top: 4px;">📚 ${item.examType} • истекает через ${item.daysLeft} дней</div>
-                                </div>
-                            `).join('')}
-                            ${expiringByOthers.length > 3 ? `<div style="text-align: center; margin-top: 8px; font-size: 12px; color: var(--text-secondary);">и ещё ${expiringByOthers.length - 3}...</div>` : ''}
-                        </div>
-                    ` : ''}
                     
                     <div class="card">
                         <div class="card-header">
@@ -1046,22 +1040,32 @@
             `;
         }
 
+        //экран мои экзамены
         function MyExamsView() {
-            const exams = getCurrentExams();
+            if (isLoading) {
+                return `<div class="loading">⏳ Загрузка экзаменов...</div>`;
+            }
+            
             return `
                 <div class="content">
                     <div class="card-header" style="margin-bottom: 16px;">
                         <div class="card-title">📋 Мои экзамены</div>
                         <button class="btn btn-outline" onclick="window.changeView('add-exam')" style="padding: 8px 16px;">+ Добавить</button>
                     </div>
-                    ${exams.length > 0 ? exams.map(exam => {
-                        const examType = MOCK_EXAM_TYPES.find(t => t.name === exam.type);
-                        const badgeClass = exam.status === 'active' ? 'badge-active' : (exam.status === 'expiring' ? 'badge-expiring' : 'badge-expired');
-                        const badgeText = exam.status === 'active' ? '✅ Действующий' : (exam.status === 'expiring' ? '⚠️ Истекает' : '❌ Просрочен');
+                    ${myExams.length > 0 ? myExams.map(exam => {
+                        let badgeClass = 'badge-active';
+                        let badgeText = '✅ Действующий';
+                        if (exam.status === 'Истекает') {
+                            badgeClass = 'badge-expiring';
+                            badgeText = '⚠️ Истекает';
+                        } else if (exam.status === 'Просрочен') {
+                            badgeClass = 'badge-expired';
+                            badgeText = '❌ Просрочен';
+                        }
                         return `
                             <div class="card">
                                 <div class="exam-card">
-                                    <div class="exam-icon">${examType?.emoji || '📚'}</div>
+                                    <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
                                     <div class="exam-info">
                                         <div class="exam-name">${exam.type}</div>
                                         <div class="exam-date">Сдан: ${exam.date}</div>
@@ -1083,6 +1087,7 @@
             `;
         }
 
+        //добавление экзамена 
         function AddExamView() {
             return `
                 <div class="content">
@@ -1094,9 +1099,9 @@
                     <div class="form-group">
                         <div class="form-label">Шаг 1: Выберите тип экзамена</div>
                         <div class="exam-types-grid">
-                            ${MOCK_EXAM_TYPES.map(type => `
+                            ${examTypes.map(type => `
                                 <div class="exam-type-btn ${selectedExamType === type.id ? 'selected' : ''}" onclick="window.selectExamType(${type.id})">
-                                    <div class="exam-type-emoji">${type.emoji}</div>
+                                    <div style="font-size: 32px;">${type.emoji}</div>
                                     <div><strong>${type.name}</strong></div>
                                     <div style="font-size: 11px; color: var(--text-secondary);">${type.duration} мес.</div>
                                 </div>
@@ -1115,8 +1120,16 @@
             `;
         }
 
+        //экран управления статусом 
         function StatusView() {
-            const statusHistory = getCurrentStatusHistory();
+            if (isLoading) {
+                return `<div class="loading">⏳ Загрузка статусов...</div>`;
+            }
+            
+            const activeStatus = getActiveStatus();
+            const isSickActive = activeStatus && activeStatus.status.includes('Больничный');
+            const sickStatusId = isSickActive ? activeStatus.id : null;
+            
             return `
                 <div class="content">
                     <div class="card-header" style="margin-bottom: 16px;">
@@ -1133,36 +1146,44 @@
                             <button class="btn btn-outline" onclick="window.openStatusModal('vacation')">🏖️ Отпуск</button>
                             <button class="btn btn-outline" onclick="window.deleteLastStatus()">❌ Отменить последний</button>
                         </div>
+                        ${isSickActive ? `
+                            <div style="margin-top: 16px;">
+                                <button class="btn btn-primary" style="width: 100%;" onclick="window.closeSickLeave(${sickStatusId})">🏥 Закрыть больничный</button>
+                            </div>
+                        ` : ''}
                     </div>
                     
                     <div class="card-header" style="margin-top: 16px;">
                         <div class="card-title">История статусов</div>
                     </div>
-                    ${statusHistory.length > 0 ? statusHistory.map(status => `
+                    ${myStatuses.length > 0 ? myStatuses.map(status => `
                         <div class="card">
                             <div class="status-card">
                                 <div>
                                     <div style="font-weight: 600;">${status.status}</div>
                                     <div style="font-size: 12px; color: var(--text-secondary);">${status.start_date} — ${status.end_date || 'По сей день'}</div>
                                 </div>
-                                ${status.duration ? `<span>${status.duration} дн.</span>` : ''}
                             </div>
                         </div>
-                    `).join('') : '<div class="empty-state"><div class="empty-emoji">📋</div><p>История статусов пуста</p></div>'}
+                    `).join('') : '<div class="empty-state"><p>📋 История статусов пуста</p></div>'}
                 </div>
             `;
         }
 
+        //экран управления персоналом
         function ManagementView() {
-            const employees = getAllEmployeesWithStatus();
-            
-            let filteredEmployees = employees;
-            if (statusFilter !== 'all') {
-                filteredEmployees = employees.filter(emp => emp.statusType === statusFilter);
+            if (isLoading) {
+                return `<div class="loading">⏳ Загрузка данных...</div>`;
             }
             
-            const stats = getStatusStats();
-            const expiringExams = currentUser.role === 'admin' ? getAllExpiringExams() : [];
+            const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0, employees: [] };
+            
+            let filteredEmployees = stats.employees || [];
+            if (statusFilter !== 'all' && statusFilter !== 'working') {
+                filteredEmployees = filteredEmployees.filter(emp => emp.status_type === statusFilter);
+            } else if (statusFilter === 'working') {
+                filteredEmployees = filteredEmployees.filter(emp => emp.status_type === 'working');
+            }
             
             return `
                 <div class="content">
@@ -1175,30 +1196,30 @@
                         <div class="card-header">
                             <div class="card-title">📈 Статусы сотрудников</div>
                         </div>
-                        <div class="status-stats-grid" style="margin-bottom: 16px;">
+                        <div class="status-stats-grid" style="margin-bottom: 16px; flex-wrap: wrap;">
                             <div class="status-stat-item ${statusFilter === 'all' ? 'active' : ''}" onclick="window.setStatusFilter('all')">
                                 <div class="status-stat-emoji">👥</div>
-                                <div class="status-stat-count">${stats.total}</div>
+                                <div class="status-stat-count">${stats.total || 0}</div>
                                 <div class="status-stat-label">Всего</div>
                             </div>
                             <div class="status-stat-item ${statusFilter === 'working' ? 'active' : ''}" onclick="window.setStatusFilter('working')">
                                 <div class="status-stat-emoji">🟢</div>
-                                <div class="status-stat-count working-color">${stats.working}</div>
+                                <div class="status-stat-count working-color">${stats.working || 0}</div>
                                 <div class="status-stat-label">Работают</div>
                             </div>
                             <div class="status-stat-item ${statusFilter === 'sick' ? 'active' : ''}" onclick="window.setStatusFilter('sick')">
                                 <div class="status-stat-emoji">🤒</div>
-                                <div class="status-stat-count sick-color">${stats.sick}</div>
+                                <div class="status-stat-count sick-color">${stats.sick || 0}</div>
                                 <div class="status-stat-label">Больничный</div>
                             </div>
                             <div class="status-stat-item ${statusFilter === 'trip' ? 'active' : ''}" onclick="window.setStatusFilter('trip')">
                                 <div class="status-stat-emoji">✈️</div>
-                                <div class="status-stat-count trip-color">${stats.trip}</div>
+                                <div class="status-stat-count trip-color">${stats.trip || 0}</div>
                                 <div class="status-stat-label">Командировка</div>
                             </div>
                             <div class="status-stat-item ${statusFilter === 'vacation' ? 'active' : ''}" onclick="window.setStatusFilter('vacation')">
                                 <div class="status-stat-emoji">🏖️</div>
-                                <div class="status-stat-count vacation-color">${stats.vacation}</div>
+                                <div class="status-stat-count vacation-color">${stats.vacation || 0}</div>
                                 <div class="status-stat-label">Отпуск</div>
                             </div>
                         </div>
@@ -1208,14 +1229,30 @@
                         <div class="card-header">
                             <div class="card-title">👥 Список сотрудников</div>
                         </div>
-                        ${filteredEmployees.map(emp => `
-                            <div class="employee-list-item">
-                                <div style="font-weight: 600;">${emp.name}</div>
-                                <div class="status-badge status-working" style="background: ${emp.statusType === 'sick' ? 'rgba(239,68,68,0.1)' : emp.statusType === 'trip' ? 'rgba(139,92,246,0.1)' : emp.statusType === 'vacation' ? 'rgba(14,165,233,0.1)' : 'rgba(16,185,129,0.1)'}; color: ${emp.statusType === 'sick' ? 'var(--sick)' : emp.statusType === 'trip' ? 'var(--business-trip)' : emp.statusType === 'vacation' ? 'var(--vacation)' : 'var(--working)'}">
-                                    ${emp.currentStatus}
+                        ${filteredEmployees.map(emp => {
+                            let statusText = '🟢 На рабочем месте';
+                            let statusColor = 'var(--working)';
+                            let bgColor = 'rgba(16, 185, 129, 0.1)';
+                            if (emp.status_type === 'sick') {
+                                statusText = '🤒 Больничный';
+                                statusColor = 'var(--sick)';
+                                bgColor = 'rgba(239, 68, 68, 0.1)';
+                            } else if (emp.status_type === 'trip') {
+                                statusText = '✈️ Командировка';
+                                statusColor = 'var(--business-trip)';
+                                bgColor = 'rgba(139, 92, 246, 0.1)';
+                            } else if (emp.status_type === 'vacation') {
+                                statusText = '🏖️ Отпуск';
+                                statusColor = 'var(--vacation)';
+                                bgColor = 'rgba(14, 165, 233, 0.1)';
+                            }
+                            return `
+                                <div class="employee-list-item">
+                                    <div style="font-weight: 600;">${emp.name}</div>
+                                    <div class="status-badge" style="background: ${bgColor}; color: ${statusColor};">${statusText}</div>
                                 </div>
-                            </div>
-                        `).join('')}
+                            `;
+                        }).join('')}
                     </div>
                     
                     ${currentUser.role === 'admin' && expiringExams.length > 0 ? `
@@ -1225,9 +1262,9 @@
                             </div>
                             ${expiringExams.map(exam => `
                                 <div class="expiring-exam-item">
-                                    <div style="font-weight: 600;">👤 ${exam.employeeName}</div>
-                                    <div style="font-size: 13px; margin-top: 4px;">📚 ${exam.examType} • ${exam.status === 'expired' ? 'ПРОСРОЧЕН на ' + Math.abs(exam.daysLeft) : 'истекает через ' + exam.daysLeft} дней</div>
-                                    <div style="font-size: 11px; color: var(--text-secondary);">Действует до: ${exam.expiresAt}</div>
+                                    <div style="font-weight: 600;">👤 ${exam.employee_name}</div>
+                                    <div style="font-size: 13px; margin-top: 4px;">📚 ${exam.exam_type} • истекает через ${exam.days_left} дней</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);">Действует до: ${exam.expires_at}</div>
                                 </div>
                             `).join('')}
                         </div>
@@ -1236,6 +1273,7 @@
             `;
         }
 
+        //модальные окна 
         function renderModal() {
             if (!modalType) return '';
             
@@ -1249,7 +1287,7 @@
                             </div>
                             <p>Больничный будет открыт с сегодняшнего дня.</p>
                             <div style="display: flex; gap: 12px; margin-top: 20px;">
-                                <button class="btn btn-primary" style="flex: 1;" onclick="window.changeStatusNow('sick'); window.closeModal();">Подтвердить</button>
+                                <button class="btn btn-primary" style="flex: 1;" onclick="window.addStatusNow('sick'); window.closeModal();">Подтвердить</button>
                                 <button class="btn btn-outline" style="flex: 1;" onclick="window.closeModal()">Отмена</button>
                             </div>
                         </div>
@@ -1259,6 +1297,7 @@
             
             if (modalType === 'trip' || modalType === 'vacation') {
                 const title = modalType === 'trip' ? '✈️ Командировка' : '🏖️ Отпуск';
+                const statusText = modalType === 'trip' ? '✈️ Командировка' : '🏖️ Отпуск';
                 return `
                     <div class="modal-overlay" onclick="window.closeModal()">
                         <div class="modal-content" onclick="event.stopPropagation()">
@@ -1275,7 +1314,7 @@
                                 <input type="date" class="form-input" id="endDate">
                             </div>
                             <div style="display: flex; gap: 12px; margin-top: 20px;">
-                                <button class="btn btn-primary" style="flex: 1;" onclick="window.saveStatusWithDates('${modalType}')">Сохранить</button>
+                                <button class="btn btn-primary" style="flex: 1;" onclick="window.addStatusWithDates('${statusText}')">Сохранить</button>
                                 <button class="btn btn-outline" style="flex: 1;" onclick="window.closeModal()">Отмена</button>
                             </div>
                         </div>
@@ -1285,21 +1324,18 @@
             return '';
         }
 
-        // ========== GLOBAL FUNCTIONS ==========
+        // функции html-windows
         window.handleLogin = () => {
             const loginInput = document.getElementById('loginInput');
             const passwordInput = document.getElementById('passwordInput');
             if (loginInput && passwordInput) {
-                savedLogin = loginInput.value;
-                savedPassword = passwordInput.value;
-                login(savedLogin, savedPassword);
+                login(loginInput.value, passwordInput.value);
             }
         };
 
         window.changeView = (view) => {
             currentView = view;
             selectedExamType = null;
-            examDate = '';
             modalType = null;
             render();
         };
@@ -1321,29 +1357,17 @@
         window.selectExamType = (id) => {
             selectedExamType = id;
             render();
-            setTimeout(() => {
-                const dateInput = document.getElementById('examDate');
-                if (dateInput) {
-                    dateInput.addEventListener('change', (e) => {
-                        examDate = e.target.value;
-                    });
-                }
-            }, 0);
         };
         
         window.saveExam = () => {
             const dateInput = document.getElementById('examDate');
-            const date = dateInput ? dateInput.value : examDate;
+            const date = dateInput ? dateInput.value : '';
             if (!selectedExamType || !date) {
                 showToast("❌ Выберите тип экзамена и дату");
                 return;
             }
-            if (addExam(selectedExamType, date)) {
-                selectedExamType = null;
-                examDate = '';
-                currentView = 'exams';
-                render();
-            }
+            addExam(selectedExamType, date);
+            selectedExamType = null;
         };
         
         window.openStatusModal = (type) => {
@@ -1356,33 +1380,36 @@
             render();
         };
         
-        window.changeStatusNow = (type) => {
+        window.addStatusNow = async (type) => {
+            const today = new Date().toISOString().split('T')[0];
             const statusMap = {
                 sick: "🤒 Больничный",
                 trip: "✈️ Командировка",
                 vacation: "🏖️ Отпуск"
             };
-            changeStatus(statusMap[type]);
+            await addStatus(statusMap[type], today, null);
         };
         
-        window.saveStatusWithDates = (type) => {
+        window.addStatusWithDates = async (statusText) => {
             const startDate = document.getElementById('startDate')?.value;
             const endDate = document.getElementById('endDate')?.value;
             if (!startDate) {
                 showToast("❌ Выберите дату начала");
                 return;
             }
-            const statusMap = {
-                trip: "✈️ Командировка",
-                vacation: "🏖️ Отпуск"
-            };
-            changeStatus(statusMap[type], startDate, endDate);
+            await addStatus(statusText, startDate, endDate);
             window.closeModal();
         };
         
-        window.deleteLastStatus = () => {
+        window.deleteLastStatus = async () => {
             if (confirm("Вы уверены? Последний статус будет удалён.")) {
-                deleteLastStatus();
+                await deleteLastStatus();
+            }
+        };
+        
+        window.closeSickLeave = async (statusId) => {
+            if (confirm("Закрыть больничный?")) {
+                await closeSickLeave(statusId);
             }
         };
         
@@ -1392,8 +1419,9 @@
 
         window.logout = logout;
 
-        function render() {
-            if (!isAuthenticated) {
+        // основные функции всплывающих окон
+        async function render() {
+            if (!isAuthenticated || !authToken) {
                 document.getElementById('root').innerHTML = LoginScreen();
                 return;
             }
@@ -1421,7 +1449,7 @@
                         <div class="header-content">
                             <div class="logo">UAISS Web</div>
                             <div style="display: flex; gap: 12px; align-items: center;">
-                                <span style="font-size: 14px;">${currentUser.name} ${currentUser.role === 'admin' ? '👑' : ''}</span>
+                                <span style="font-size: 14px;">${currentUser?.name || ''} ${currentUser?.role === 'admin' ? '👑' : ''}</span>
                                 <button class="logout-btn" onclick="window.logout()">Выйти</button>
                                 <button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button>
                             </div>
@@ -1445,6 +1473,32 @@
             `;
             
             document.getElementById('root').innerHTML = html;
+        }
+        
+        // проверяем сохраненный токен при загрузке-инициализация приложения
+        if (authToken) {
+            // Попробуем восстановить сессию
+            fetch(`${API_BASE}/auth/me`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            }).then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Токен недействителен');
+                }
+            }).then(user => {
+                currentUser = {
+                    user_id: user.user_id,
+                    name: user.full_name,
+                    role: user.role
+                };
+                isAuthenticated = true;
+                loadAllData();
+            }).catch(() => {
+                authToken = null;
+                localStorage.removeItem('authToken');
+                render();
+            });
         }
         
         setDarkMode(isDarkMode);

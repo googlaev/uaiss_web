@@ -11,9 +11,10 @@ import jwt
 import secrets
 import os
 
+#экземпляр FastAPI
 app = FastAPI(title="UAISS Web API", version="1.0.0")
 
-# Настройки
+# шифр
 SECRET_KEY = secrets.token_hex(32)
 ALGORITHM = "HS256"
 
@@ -25,10 +26,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+#извлечение токена из заголовка 
 security = HTTPBearer()
 
-# ============= МОДЕЛИ ДАННЫХ =============
+#модели данных 
 class LoginRequest(BaseModel):
     login: str
     password: str
@@ -49,26 +50,26 @@ class StatusAdd(BaseModel):
     start_date: str
     end_date: Optional[str] = None
 
-# ============= ФУНКЦИЯ ДЛЯ ПРОВЕРКИ И ИСПРАВЛЕНИЯ БД =============
+#работа с БД
 def check_and_fix_database():
     """Проверяет и добавляет недостающие колонки в БД"""
-    print("\n🔍 Проверка структуры базы данных...")
+    print("\n Проверка структуры базы данных...")
     
     conn = sqlite3.connect('exams.db')
     cursor = conn.cursor()
     
-    # Проверяем наличие таблицы users
+    # проверяет наличие таблицы users
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
     if not cursor.fetchone():
         print("❌ Таблица users не найдена!")
         return False
     
-    # Получаем список существующих колонок в таблице users
+    # получаем список существующих колонок в таблице users
     cursor.execute("PRAGMA table_info(users)")
     columns = [col[1] for col in cursor.fetchall()]
-    print(f"📋 Существующие колонки: {columns}")
+    print(f" Существующие колонки: {columns}")
     
-    # Добавляем недостающие колонки (БЕЗ UNIQUE, добавим позже)
+    # добавляем недостающие колонки 
     if 'login' not in columns:
         print("➕ Добавляем колонку 'login'...")
         cursor.execute("ALTER TABLE users ADD COLUMN login TEXT")
@@ -84,14 +85,14 @@ def check_and_fix_database():
         cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'employee'")
         print("✅ Колонка role добавлена")
     
-    # Функция хэширования
+    # функция хэширования
     def hash_password(pwd):
         return hashlib.sha256(pwd.encode()).hexdigest()
     
-    # Добавляем тестовых пользователей, если их нет
+    # добавляем тестовых пользователей
     print("\n👤 Проверка тестовых пользователей...")
     
-    # Проверяем и добавляем сотрудника
+    # добавляем сотрудника
     cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'user@uaiss.ru'")
     if cursor.fetchone()[0] == 0:
         cursor.execute('''
@@ -100,7 +101,7 @@ def check_and_fix_database():
         ''', ("Алексей Смирнов", "user@uaiss.ru", hash_password("123456"), "employee"))
         print("✅ Добавлен: user@uaiss.ru / 123456")
     
-    # Проверяем и добавляем администратора
+    # добавляем администратора
     cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'admin@uaiss.ru'")
     if cursor.fetchone()[0] == 0:
         cursor.execute('''
@@ -109,7 +110,7 @@ def check_and_fix_database():
         ''', ("Екатерина Морозова", "admin@uaiss.ru", hash_password("admin123"), "admin"))
         print("✅ Добавлен: admin@uaiss.ru / admin123")
     
-    # Обновляем существующих пользователей (у кого нет логина)
+    # обновляем существующих пользователей (у кого нет логина)
     cursor.execute("SELECT user_id, full_name FROM users WHERE login IS NULL")
     users_without_login = cursor.fetchall()
     
@@ -128,7 +129,7 @@ def check_and_fix_database():
     
     conn.commit()
     
-    # Показываем итоговый список пользователей
+    # итоговый список пользователей
     print("\n📋 Пользователи в БД:")
     cursor.execute("SELECT user_id, full_name, login, role FROM users")
     users = cursor.fetchall()
@@ -139,7 +140,7 @@ def check_and_fix_database():
     print("\n✅ База данных готова к работе!\n")
     return True
 
-# ============= РАБОТА С БД =============
+# БД
 def get_db():
     conn = sqlite3.connect('exams.db')
     conn.row_factory = sqlite3.Row
@@ -158,7 +159,7 @@ def create_token(user_id: int, role: str) -> str:
         "exp": datetime.utcnow() + timedelta(hours=8)
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
+#проверка и декодирование пользователя
 def verify_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -166,12 +167,13 @@ def verify_token(token: str) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Неверный токен")
 
+#текущий пользователь
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
     payload = verify_token(token)
     return {"user_id": int(payload["sub"]), "role": payload["role"]}
-
-# ============= 1. АВТОРИЗАЦИЯ =============
+#API эндпоинты 
+# авторизация
 @app.post("/api/v1/auth/login", response_model=LoginResponse)
 async def login(auth_data: LoginRequest):
     """POST /auth/login - Вход по логину и паролю"""
@@ -218,7 +220,7 @@ async def get_me(current_user=Depends(get_current_user)):
     conn.close()
     return dict(user)
 
-# ============= 2. ЭКЗАМЕНЫ =============
+#экзамены
 @app.get("/api/v1/exams/my")
 async def get_my_exams(current_user=Depends(get_current_user)):
     conn = get_db()
@@ -362,7 +364,7 @@ async def get_exam_types():
     conn.close()
     return types
 
-# ============= 3. СТАТУСЫ СОТРУДНИКОВ =============
+#статусы
 @app.get("/api/v1/status/my")
 async def get_my_status(current_user=Depends(get_current_user)):
     conn = get_db()
@@ -519,28 +521,28 @@ async def get_current_status_stats(current_user=Depends(get_current_user)):
     conn.close()
     return stats
 
-# ============= 4. ГЛАВНАЯ СТРАНИЦА =============
+#главная стр
 @app.get("/")
 async def root():
     if os.path.exists('uaiss.html'):
         return FileResponse('uaiss.html')
     return {"message": "UAISS Web API работает. Добавьте файл uaiss.html"}
 
-# ============= ЗАПУСК С ПРОВЕРКОЙ БД =============
+
 if __name__ == "__main__":
     import uvicorn
     
-    # Проверяем и исправляем БД перед запуском
+    # проверяем и исправляем БД перед запуском
     check_and_fix_database()
     
+    
+    print("UAISS Web API Сервер запущен!")
+    print("Интерфейс: http://localhost:8000")
+    print("Документация API: http://localhost:8000/docs")
     print("="*60)
-    print("🚀 UAISS Web API Сервер запущен!")
-    print("📱 Интерфейс: http://localhost:8000")
-    print("📚 Документация API: http://localhost:8000/docs")
-    print("="*60)
-    print("\n📝 Тестовые учетные записи:")
-    print("   👤 Сотрудник: user@uaiss.ru / 123456")
-    print("   👑 Администратор: admin@uaiss.ru / admin123")
-    print("="*60 + "\n")
+    print("\nТестовые учетные записи:")
+    print("Сотрудник: user@uaiss.ru / 123456")
+    print("Администратор: admin@uaiss.ru / admin123")
+    print("\n")
     
     uvicorn.run(app, host="127.0.0.1", port=8000)

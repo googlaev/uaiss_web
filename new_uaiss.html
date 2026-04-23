@@ -630,12 +630,12 @@
     <div id="root"></div>
 
     <script>
-        // ========== API БАЗОВЫЙ URL ==========
+        
         const API_BASE = 'http://localhost:8000/api/v1';
 
-        // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
-        let isAuthenticated = false;
-        let currentUser = null;
+        // глобальные переменные
+        let isAuthenticated = false;//авторизация
+        let currentUser = null;//данные пользователя
         let authToken = localStorage.getItem('authToken');
         let currentView = 'home';
         let currentToast = null;
@@ -643,7 +643,7 @@
         let loginError = null;
         let modalType = null;
         let selectedExamType = null;
-        let statusFilter = 'all';
+        let statusFilter = 'all';//фильтр статусов в упр.
         
         // Данные загруженные с API
         let myExams = [];
@@ -654,7 +654,7 @@
         let allEmployeesStatuses = [];
         let isLoading = false;
 
-        // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+        //переключение темы (темная/светлая)
         function setDarkMode(enabled) {
             isDarkMode = enabled;
             if (enabled) {
@@ -665,7 +665,7 @@
             localStorage.setItem('darkMode', enabled);
             render();
         }
-
+        //уведомления
         function showToast(message, duration = 3000) {
             currentToast = message;
             render();
@@ -675,6 +675,7 @@
             }, duration);
         }
 
+        //API запросы 
         async function apiRequest(endpoint, options = {}) {
             const headers = {
                 'Content-Type': 'application/json',
@@ -699,7 +700,7 @@
             return response;
         }
 
-        // ========== API ФУНКЦИИ ==========
+        // вход в систему
         async function login(loginValue, passwordValue) {
             try {
                 const response = await fetch(`${API_BASE}/auth/login`, {
@@ -739,6 +740,7 @@
             }
         }
 
+        //загрузка всех данных 
         async function loadAllData() {
             isLoading = true;
             render();
@@ -777,6 +779,7 @@
             render();
         }
 
+        //добавление экзамена 
         async function addExam(examTypeId, date) {
             try {
                 const response = await apiRequest('/exams', {
@@ -800,6 +803,7 @@
                 return false;
             }
         }
+
 
         async function addStatus(statusType, startDate, endDate = null) {
             try {
@@ -827,6 +831,7 @@
             }
         }
 
+        //удаление предыдущего статуса 
         async function deleteLastStatus() {
             try {
                 const response = await apiRequest('/status/last', {
@@ -848,6 +853,7 @@
             }
         }
 
+        //закрытие больничного 
         async function closeSickLeave(statusId) {
             try {
                 const response = await apiRequest(`/status/${statusId}/close`, {
@@ -869,6 +875,7 @@
             }
         }
 
+        //выход из системы
         function logout() {
             authToken = null;
             localStorage.removeItem('authToken');
@@ -884,7 +891,7 @@
             render();
         }
 
-        // ========== ФУНКЦИИ ДЛЯ ПОЛУЧЕНИЯ ДАННЫХ ==========
+        // возврашение данных
         function getCurrentExams() {
             return myExams;
         }
@@ -902,7 +909,7 @@
             return examType?.emoji || '📚';
         }
 
-        // ========== КОМПОНЕНТЫ ОТОБРАЖЕНИЯ ==========
+        // экран входа
         function LoginScreen() {
             return `
                 <div class="login-container">
@@ -938,6 +945,7 @@
             `;
         }
 
+        //главный экран
         function HomeView() {
             if (isLoading) {
                 return `<div class="loading">⏳ Загрузка данных...</div>`;
@@ -1032,6 +1040,7 @@
             `;
         }
 
+        //экран мои экзамены
         function MyExamsView() {
             if (isLoading) {
                 return `<div class="loading">⏳ Загрузка экзаменов...</div>`;
@@ -1078,6 +1087,7 @@
             `;
         }
 
+        //добавление экзамена 
         function AddExamView() {
             return `
                 <div class="content">
@@ -1110,6 +1120,7 @@
             `;
         }
 
+        //экран управления статусом 
         function StatusView() {
             if (isLoading) {
                 return `<div class="loading">⏳ Загрузка статусов...</div>`;
@@ -1159,6 +1170,7 @@
             `;
         }
 
+        //экран управления персоналом
         function ManagementView() {
             if (isLoading) {
                 return `<div class="loading">⏳ Загрузка данных...</div>`;
@@ -1261,6 +1273,7 @@
             `;
         }
 
+        //модальные окна 
         function renderModal() {
             if (!modalType) return '';
             
@@ -1311,7 +1324,7 @@
             return '';
         }
 
-        // ========== ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ HTML ==========
+        // функции html-windows
         window.handleLogin = () => {
             const loginInput = document.getElementById('loginInput');
             const passwordInput = document.getElementById('passwordInput');
@@ -1406,7 +1419,7 @@
 
         window.logout = logout;
 
-        // ========== ОСНОВНАЯ ФУНКЦИЯ РЕНДЕРИНГА ==========
+        // основные функции всплывающих окон
         async function render() {
             if (!isAuthenticated || !authToken) {
                 document.getElementById('root').innerHTML = LoginScreen();
@@ -1462,7 +1475,7 @@
             document.getElementById('root').innerHTML = html;
         }
         
-        // Проверяем сохраненный токен при загрузке
+        // проверяем сохраненный токен при загрузке-инициализация приложения
         if (authToken) {
             // Попробуем восстановить сессию
             fetch(`${API_BASE}/auth/me`, {
