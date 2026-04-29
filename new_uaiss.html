@@ -247,25 +247,8 @@
                     render();
                     return true;
                 } else {
-                    showToast('❌ Ошибка добавления статуса');
-                    return false;
-                }
-            } catch (error) {
-                showToast('❌ Ошибка соединения');
-                return false;
-            }
-        }
-
-        async function deleteLastStatus() {
-            try {
-                const response = await apiRequest('/status/last', { method: 'DELETE' });
-                if (response.ok) {
-                    showToast('✅ Последний статус удалён');
-                    await loadAllData();
-                    render();
-                    return true;
-                } else {
-                    showToast('❌ Ошибка удаления');
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail || 'Ошибка добавления статуса'}`);
                     return false;
                 }
             } catch (error) {
@@ -276,14 +259,17 @@
 
         async function closeSickLeave(statusId) {
             try {
-                const response = await apiRequest(`/status/${statusId}/close`, { method: 'PATCH' });
+                const response = await apiRequest(`/status/${statusId}/close`, {
+                    method: 'PATCH'
+                });
                 if (response.ok) {
                     showToast('✅ Больничный закрыт');
                     await loadAllData();
                     render();
                     return true;
                 } else {
-                    showToast('❌ Ошибка закрытия');
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail || 'Ошибка закрытия'}`);
                     return false;
                 }
             } catch (error) {
@@ -417,6 +403,18 @@
             if (isLoading) return `<div class="loading">⏳ Загрузка экзаменов...</div>`;
             return `
                 <div class="content">
+                    <div class="card" style="background: linear-gradient(135deg, var(--success), var(--accent)); color: white; margin-bottom: 16px;">
+                        <div class="card-header">
+                            <div class="card-title">📥 Экспорт данных</div>
+                        </div>
+                        <div style="display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                            <span>Скачать отчет по всем экзаменам сотрудников</span>
+                            <button class="btn" style="background: white; color: var(--accent);" onclick="window.downloadExamsReport()">
+                                📥 Скачать отчет
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="card-header"><div class="card-title">📋 Мои экзамены</div><button class="btn btn-outline" onclick="window.changeView('add-exam')">+ Добавить</button></div>
                     ${myExams.length > 0 ? myExams.map(exam => {
                         let badgeClass = 'badge-active', badgeText = '✅ Действующий';
@@ -439,16 +437,66 @@
         }
 
         function StatusView() {
-            if (isLoading) return `<div class="loading">⏳ Загрузка статусов...</div>`;
+            if (isLoading) {
+                return `<div class="loading">⏳ Загрузка статусов...</div>`;
+            }
+            
             const activeStatus = getActiveStatus();
             const isSickActive = activeStatus && activeStatus.status.includes('Больничный');
+            const isTripActive = activeStatus && activeStatus.status.includes('Командировка');
+            const isVacationActive = activeStatus && activeStatus.status.includes('Отпуск');
             const sickStatusId = isSickActive ? activeStatus.id : null;
+            const hasActiveStatus = activeStatus !== undefined;
+            
             return `
                 <div class="content">
-                    <div class="card-header"><div class="card-title">👤 Мой статус</div></div>
-                    <div class="card"><div class="card-header"><div class="card-title">Изменить статус</div></div><div style="display:grid; grid-template-columns:repeat(2,1fr); gap:12px;"><button class="btn btn-outline" onclick="window.openStatusModal('sick')">🤒 Больничный</button><button class="btn btn-outline" onclick="window.openStatusModal('trip')">✈️ Командировка</button><button class="btn btn-outline" onclick="window.openStatusModal('vacation')">🏖️ Отпуск</button><button class="btn btn-outline" onclick="window.deleteLastStatus()">❌ Отменить последний</button></div>${isSickActive ? `<div style="margin-top:16px;"><button class="btn btn-primary" onclick="window.closeSickLeave(${sickStatusId})">🏥 Закрыть больничный</button></div>` : ''}</div>
-                    <div class="card-header"><div class="card-title">История статусов</div></div>
-                    ${myStatuses.length > 0 ? myStatuses.map(status => `<div class="card"><div class="status-card"><div><div style="font-weight:600;">${status.status}</div><div style="font-size:12px;">${status.start_date} — ${status.end_date || 'По сей день'}</div></div></div></div>`).join('') : '<div class="empty-state"><p>📋 История статусов пуста</p></div>'}
+                    <div class="card-header" style="margin-bottom: 16px;">
+                        <div class="card-title">👤 Мой статус</div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Изменить статус</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                            <button class="btn btn-outline" onclick="window.openStatusModal('sick')" ${hasActiveStatus && !isSickActive ? 'disabled style="opacity:0.5;"' : ''}>🤒 Больничный</button>
+                            <button class="btn btn-outline" onclick="window.openStatusModal('trip')" ${hasActiveStatus && !isTripActive ? 'disabled style="opacity:0.5;"' : ''}>✈️ Командировка</button>
+                            <button class="btn btn-outline" onclick="window.openStatusModal('vacation')" ${hasActiveStatus && !isVacationActive ? 'disabled style="opacity:0.5;"' : ''}>🏖️ Отпуск</button>
+                        </div>
+                        <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary); text-align: center;">
+                            ${hasActiveStatus ? '⚠️ Сначала закройте текущий статус, чтобы изменить его' : '✅ Выберите статус для изменения'}
+                        </div>
+                    </div>
+                    
+                    ${isSickActive ? `
+                    <div class="card" style="margin-top: 16px;">
+                        <div class="card-header">
+                            <div class="card-title">🏥 Управление больничным</div>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn btn-primary" style="flex: 1;" onclick="window.closeSickLeaveWithPrompt(${sickStatusId})">🔒 Закрыть больничный</button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.extendSickLeave(${sickStatusId})">📅 Продлить больничный</button>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <div class="card-header" style="margin-top: 16px;">
+                        <div class="card-title">📋 История статусов</div>
+                    </div>
+                    ${myStatuses.length > 0 ? myStatuses.map(status => `
+                        <div class="card" style="position: relative;">
+                            <div class="status-card">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600;">${status.status}</div>
+                                    <div style="font-size: 12px; color: var(--text-secondary);">${status.start_date} — ${status.end_date || 'По сей день'}</div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px;" onclick="window.editStatusDates(${status.id}, '${status.status}', '${status.start_date}', '${status.end_date || ''}')">✏️ Изменить даты</button>
+                                    <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px; color: var(--danger);" onclick="window.deleteStatusWithConfirm(${status.id})">🗑️ Удалить</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('') : '<div class="empty-state"><p>📋 История статусов пуста</p></div>'}
                 </div>
             `;
         }
@@ -472,12 +520,55 @@
         function renderModal() {
             if (!modalType) return '';
             if (modalType === 'sick') {
-                return `<div class="modal-overlay" onclick="window.closeModal()"><div class="modal-content" onclick="event.stopPropagation()"><div class="card-header"><div class="card-title">🤒 Открыть больничный</div><button class="btn btn-outline" onclick="window.closeModal()">✕</button></div><p>Больничный будет открыт с сегодняшнего дня.</p><div style="display:flex; gap:12px; margin-top:20px;"><button class="btn btn-primary" onclick="window.addStatusNow('sick'); window.closeModal();">Подтвердить</button><button class="btn btn-outline" onclick="window.closeModal()">Отмена</button></div></div></div>`;
+                return `
+                    <div class="modal-overlay" onclick="window.closeModal()">
+                        <div class="modal-content" onclick="event.stopPropagation()">
+                            <div class="card-header" style="margin-bottom: 16px;">
+                                <div class="card-title">🤒 Открыть больничный</div>
+                                <button class="btn btn-outline" onclick="window.closeModal()" style="padding: 4px 8px;">✕</button>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Дата начала</label>
+                                <input type="date" class="form-input" id="sickStartDate" value="${new Date().toISOString().split('T')[0]}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Дата окончания (оставьте пустым, если открыт)</label>
+                                <input type="date" class="form-input" id="sickEndDate">
+                                <small style="font-size: 11px; color: var(--text-secondary);">* Если дата указана, больничный будет закрыт в эту дату</small>
+                            </div>
+                            <div style="display: flex; gap: 12px; margin-top: 20px;">
+                                <button class="btn btn-primary" style="flex: 1;" onclick="window.saveSickLeave()">✅ Открыть</button>
+                                <button class="btn btn-outline" style="flex: 1;" onclick="window.closeModal()">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
             if (modalType === 'trip' || modalType === 'vacation') {
                 const title = modalType === 'trip' ? '✈️ Командировка' : '🏖️ Отпуск';
                 const statusText = modalType === 'trip' ? '✈️ Командировка' : '🏖️ Отпуск';
-                return `<div class="modal-overlay" onclick="window.closeModal()"><div class="modal-content" onclick="event.stopPropagation()"><div class="card-header"><div class="card-title">${title}</div><button class="btn btn-outline" onclick="window.closeModal()">✕</button></div><div class="form-group"><label class="form-label">Дата начала</label><input type="date" class="form-input" id="startDate" value="${new Date().toISOString().split('T')[0]}"></div><div class="form-group"><label class="form-label">Дата окончания</label><input type="date" class="form-input" id="endDate"></div><div style="display:flex; gap:12px; margin-top:20px;"><button class="btn btn-primary" onclick="window.addStatusWithDates('${statusText}')">Сохранить</button><button class="btn btn-outline" onclick="window.closeModal()">Отмена</button></div></div></div>`;
+                return `
+                    <div class="modal-overlay" onclick="window.closeModal()">
+                        <div class="modal-content" onclick="event.stopPropagation()">
+                            <div class="card-header" style="margin-bottom: 16px;">
+                                <div class="card-title">${title}</div>
+                                <button class="btn btn-outline" onclick="window.closeModal()" style="padding: 4px 8px;">✕</button>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Дата начала</label>
+                                <input type="date" class="form-input" id="startDate" value="${new Date().toISOString().split('T')[0]}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Дата окончания</label>
+                                <input type="date" class="form-input" id="endDate">
+                            </div>
+                            <div style="display: flex; gap: 12px; margin-top: 20px;">
+                                <button class="btn btn-primary" style="flex: 1;" onclick="window.addStatusWithDates('${statusText}')">Сохранить</button>
+                                <button class="btn btn-outline" style="flex: 1;" onclick="window.closeModal()">Отмена</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
             if (modalType === 'profile') {
                 return `
@@ -500,6 +591,227 @@
             return '';
         }
 
+        window.downloadExamsReport = async () => {
+            try {
+                showToast('⏳ Формирование отчета...');
+                const response = await apiRequest('/exams/report/csv', { method: 'GET' });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = 'exams_report.csv';
+                    if (contentDisposition) {
+                        const match = contentDisposition.match(/filename=(.+)/);
+                        if (match) filename = match[1];
+                    }
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    showToast('✅ Отчет успешно скачан');
+                } else {
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail || 'Ошибка скачивания отчета'}`);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                showToast('❌ Ошибка соединения');
+            }
+        };
+
+        window.deleteStatusWithConfirm = async (statusId) => {
+            const status = myStatuses.find(s => s.id === statusId);
+            if (!status) return;
+            
+            const userConfirmed = confirm(`Вы уверены, что хотите удалить статус:\n"${status.status}"\nс ${status.start_date} по ${status.end_date || 'настоящее время'}?`);
+            
+            if (userConfirmed) {
+                try {
+                    const response = await apiRequest(`/status/${statusId}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        showToast('✅ Статус удален');
+                        await loadAllData();
+                        render();
+                    } else {
+                        showToast('❌ Ошибка удаления');
+                        render();
+                    }
+                } catch (error) {
+                    showToast('❌ Ошибка соединения');
+                }
+            }
+        };
+
+        window.editStatusDates = (statusId, statusText, startDate, endDate) => {
+            window.editStatusId = statusId;
+            window.editStartDate = startDate;
+            window.editEndDate = endDate;
+            
+            const modalHtml = `
+                <div class="modal-overlay" onclick="window.closeEditModal()">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto;">
+                        <div class="card-header" style="margin-bottom: 16px;">
+                            <div class="card-title">✏️ Редактировать ${statusText}</div>
+                            <button class="btn btn-outline" onclick="window.closeEditModal()" style="padding: 4px 8px;">✕</button>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Дата начала</label>
+                            <input type="date" class="form-input" id="editStartDate" value="${startDate.split('.').reverse().join('-')}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Дата окончания</label>
+                            <input type="date" class="form-input" id="editEndDate" value="${endDate ? endDate.split('.').reverse().join('-') : ''}">
+                            <small style="font-size: 11px; color: var(--text-secondary);">Для больничного оставьте пустым, если еще открыт</small>
+                        </div>
+                        <div style="display: flex; gap: 12px; margin-top: 20px;">
+                            <button class="btn btn-primary" style="flex: 1;" onclick="window.saveEditedStatus()">💾 Сохранить</button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeEditModal()">Отмена</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const modalDiv = document.createElement('div');
+            modalDiv.id = 'editStatusModal';
+            modalDiv.innerHTML = modalHtml;
+            document.body.appendChild(modalDiv);
+        };
+
+        window.closeEditModal = () => {
+            const modal = document.getElementById('editStatusModal');
+            if (modal) modal.remove();
+        };
+
+        window.saveEditedStatus = async () => {
+            const startDateInput = document.getElementById('editStartDate');
+            const endDateInput = document.getElementById('editEndDate');
+            
+            if (!startDateInput || !startDateInput.value) {
+                showToast('❌ Выберите дату начала');
+                return;
+            }
+            
+            const startDate = startDateInput.value.split('-').reverse().join('.');
+            let endDate = null;
+            if (endDateInput && endDateInput.value) {
+                endDate = endDateInput.value.split('-').reverse().join('.');
+            }
+            
+            try {
+                const response = await apiRequest(`/status/${window.editStatusId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ start_date: startDate, end_date: endDate })
+                });
+                
+                if (response.ok) {
+                    showToast('✅ Даты успешно обновлены');
+                    window.closeEditModal();
+                    await loadAllData();
+                    render();
+                } else {
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail || 'Ошибка обновления дат'}`);
+                }
+            } catch (error) {
+                showToast('❌ Ошибка соединения');
+            }
+        };
+
+        window.extendSickLeave = async (statusId) => {
+            const newEndDate = prompt('Введите новую дату окончания больничного в формате ДД.ММ.ГГГГ (оставьте пустым, если больничный еще открыт):', '');
+            
+            if (newEndDate === null) return;
+            
+            let endDateValue = null;
+            if (newEndDate && newEndDate.trim() !== '') {
+                const dateRegex = /^\d{2}\.\d{2}\.\d{4}$/;
+                if (!dateRegex.test(newEndDate)) {
+                    showToast('❌ Неверный формат даты. Используйте ДД.ММ.ГГГГ');
+                    return;
+                }
+                endDateValue = newEndDate;
+            }
+            
+            try {
+                const response = await apiRequest(`/status/${statusId}/extend`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ end_date: endDateValue })
+                });
+                
+                if (response.ok) {
+                    showToast('✅ Больничный продлен');
+                    await loadAllData();
+                    render();
+                } else {
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail || 'Ошибка продления'}`);
+                }
+            } catch (error) {
+                showToast('❌ Ошибка соединения');
+            }
+        };
+
+        window.saveSickLeave = async () => {
+            const startDateInput = document.getElementById('sickStartDate');
+            const endDateInput = document.getElementById('sickEndDate');
+            
+            if (!startDateInput || !startDateInput.value) {
+                showToast('❌ Выберите дату начала');
+                return;
+            }
+            
+            const startDate = startDateInput.value.split('-').reverse().join('.');
+            let endDate = null;
+            if (endDateInput && endDateInput.value) {
+                endDate = endDateInput.value.split('-').reverse().join('.');
+                if (new Date(endDateInput.value) < new Date(startDateInput.value)) {
+                    showToast('❌ Дата окончания не может быть раньше даты начала');
+                    return;
+                }
+            }
+            
+            await addStatus("🤒 Больничный", startDate, endDate);
+            window.closeModal();
+        };
+
+        window.closeSickLeaveWithPrompt = async (statusId) => {
+            const closeDate = prompt('Введите дату закрытия больничного в формате ДД.ММ.ГГГГ (сегодняшняя дата по умолчанию):', new Date().toLocaleDateString('ru-RU'));
+            
+            let endDate = new Date().toLocaleDateString('ru-RU');
+            if (closeDate && closeDate.trim() !== '') {
+                const dateRegex = /^\d{2}\.\d{2}\.\d{4}$/;
+                if (!dateRegex.test(closeDate)) {
+                    showToast('❌ Неверный формат даты. Используйте ДД.ММ.ГГГГ');
+                    return;
+                }
+                endDate = closeDate;
+            }
+            
+            const userConfirmed = confirm(`Закрыть больничный датой ${endDate}?`);
+            if (!userConfirmed) return;
+            
+            try {
+                const response = await apiRequest(`/status/${statusId}/close`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ end_date: endDate })
+                });
+                
+                if (response.ok) {
+                    showToast('✅ Больничный закрыт');
+                    await loadAllData();
+                    render();
+                } else {
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail || 'Ошибка закрытия'}`);
+                }
+            } catch (error) {
+                showToast('❌ Ошибка соединения');
+            }
+        };
+
         window.handleLogin = () => {
             const loginInput = document.getElementById('loginInput');
             const passwordInput = document.getElementById('passwordInput');
@@ -511,12 +823,51 @@
         window.setStatusFilterAndGo = (filter) => { statusFilter = filter; currentView = 'management'; render(); };
         window.selectExamType = (id) => { selectedExamType = id; render(); };
         window.saveExam = () => { const date = document.getElementById('examDate')?.value; if (!selectedExamType || !date) { showToast("❌ Выберите тип экзамена и дату"); return; } addExam(selectedExamType, date); selectedExamType = null; };
-        window.openStatusModal = (type) => { modalType = type; render(); };
+        
+        window.openStatusModal = (type) => { 
+            const activeStatus = getActiveStatus();
+            
+            if (activeStatus) {
+                const currentType = 
+                    activeStatus.status.includes('Больничный') ? 'sick' :
+                    activeStatus.status.includes('Командировка') ? 'trip' :
+                    activeStatus.status.includes('Отпуск') ? 'vacation' : null;
+                
+                if (currentType !== type) {
+                    showToast(`❌ Нельзя установить ${type === 'sick' ? 'больничный' : type === 'trip' ? 'командировку' : 'отпуск'}, пока активен другой статус. Сначала закройте текущий статус.`);
+                    return;
+                }
+            }
+            
+            modalType = type; 
+            render(); 
+        };
+        
+        window.addStatusWithDates = async (statusText) => {
+            const startDate = document.getElementById('startDate')?.value;
+            const endDate = document.getElementById('endDate')?.value;
+            
+            if (!startDate) {
+                showToast("❌ Выберите дату начала");
+                return;
+            }
+            
+            const formattedStartDate = startDate.split('-').reverse().join('.');
+            let formattedEndDate = null;
+            if (endDate) {
+                formattedEndDate = endDate.split('-').reverse().join('.');
+                if (new Date(endDate) < new Date(startDate)) {
+                    showToast("❌ Дата окончания не может быть раньше даты начала");
+                    return;
+                }
+            }
+            
+            await addStatus(statusText, formattedStartDate, formattedEndDate);
+            window.closeModal();
+        };
+        
+        window.addStatusNow = async (type) => { const today = new Date().toISOString().split('T')[0]; const date = today.split('-').reverse().join('.'); const statusMap = { sick: "🤒 Больничный", trip: "✈️ Командировка", vacation: "🏖️ Отпуск" }; await addStatus(statusMap[type], date, null); };
         window.closeModal = () => { modalType = null; render(); };
-        window.addStatusNow = async (type) => { const today = new Date().toISOString().split('T')[0]; const statusMap = { sick: "🤒 Больничный", trip: "✈️ Командировка", vacation: "🏖️ Отпуск" }; await addStatus(statusMap[type], today, null); };
-        window.addStatusWithDates = async (statusText) => { const startDate = document.getElementById('startDate')?.value; const endDate = document.getElementById('endDate')?.value; if (!startDate) { showToast("❌ Выберите дату начала"); return; } await addStatus(statusText, startDate, endDate); window.closeModal(); };
-        window.deleteLastStatus = async () => { if (confirm("Вы уверены? Последний статус будет удалён.")) await deleteLastStatus(); };
-        window.closeSickLeave = async (statusId) => { if (confirm("Закрыть больничный?")) await closeSickLeave(statusId); };
         window.toggleTheme = () => setDarkMode(!isDarkMode);
         window.logout = logout;
 

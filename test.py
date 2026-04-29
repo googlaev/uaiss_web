@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -138,6 +138,61 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     payload = verify_token(token)
     return {"user_id": int(payload["sub"]), "role": payload["role"]}
 
+def parse_date(date_str: str) -> datetime:
+    return datetime.strptime(date_str, '%d.%m.%Y')
+
+def format_date(date: datetime) -> str:
+    return date.strftime('%d.%m.%Y')
+
+def check_status_overlap(user_id: int, start_date: str, end_date: Optional[str] = None, exclude_status_id: Optional[int] = None) -> tuple:
+    conn = get_db()
+    try:
+        new_start = parse_date(start_date)
+        new_end = parse_date(end_date) if end_date else None
+        
+        if exclude_status_id:
+            cursor = conn.execute(
+                "SELECT id, status, start_date, end_date FROM user_status WHERE user_id = ? AND id != ?",
+                (user_id, exclude_status_id)
+            )
+        else:
+            cursor = conn.execute(
+                "SELECT id, status, start_date, end_date FROM user_status WHERE user_id = ?",
+                (user_id,)
+            )
+        
+        statuses = cursor.fetchall()
+        
+        for status in statuses:
+            status_start = parse_date(status['start_date'])
+            status_end = parse_date(status['end_date']) if status['end_date'] else None
+            
+            # Очищаем статус от эмодзи (смайликов)
+            status_text = status['status']
+            # Убираем конкретные эмодзи
+            status_text = status_text.replace('🤒', '')
+            status_text = status_text.replace('✈️', '')
+            status_text = status_text.replace('🏖️', '')
+            status_text = status_text.replace('🟢', '')
+            # Убираем лишние пробелы
+            status_text = status_text.strip()
+            
+            if new_end is None and status_end is None:
+                return (True, status_text)
+            elif new_end is None:
+                if new_start <= status_end:
+                    return (True, status_text)
+            elif status_end is None:
+                if status_start <= new_end:
+                    return (True, status_text)
+            else:
+                if not (new_end < status_start or new_start > status_end):
+                    return (True, status_text)
+        
+        return (False, None)
+    finally:
+        conn.close()
+
 @app.post("/api/v1/auth/login", response_model=LoginResponse)
 async def login(auth_data: LoginRequest):
     conn = get_db()
@@ -204,10 +259,8 @@ async def update_email(email_data: EmailUpdate, current_user=Depends(get_current
     finally:
         conn.close()
 
-# CSV отчет - доступ всем авторизованным пользователям
 @app.get("/api/v1/exams/report/csv")
 async def export_exams_report(current_user=Depends(get_current_user)):
-    """Экспорт всех экзаменов сотрудников в CSV"""
     conn = get_db()
     try:
         cursor = conn.execute("""
@@ -227,10 +280,9 @@ async def export_exams_report(current_user=Depends(get_current_user)):
         rows = cursor.fetchall()
         
         output = StringIO()
-        output.write('\uFEFF')  # BOM для корректного отображения русских букв
+        output.write('\uFEFF')
         writer = csv.writer(output, delimiter=';')
         
-        # Заголовки: Фамилия, Тип экзамена, Дата сдачи, Действителен до
         writer.writerow(['Фамилия', 'Тип экзамена', 'Дата сдачи', 'Действителен до'])
         
         for row in rows:
@@ -249,7 +301,6 @@ async def export_exams_report(current_user=Depends(get_current_user)):
                 print(f"Ошибка обработки: {e}")
                 continue
         
-        # Имя файла: exams_ДД_ММ_ГГГГ.csv
         filename = f"exams_{datetime.now().strftime('%d_%m_%Y')}.csv"
         
         return StreamingResponse(
@@ -317,8 +368,13 @@ async def get_exam_types():
 @app.get("/api/v1/status/my")
 async def get_my_status(current_user=Depends(get_current_user)):
     conn = get_db()
-    cursor = conn.execute("SELECT id, status, start_date, end_date FROM user_status WHERE user_id = ? ORDER BY start_date DESC",
-                          (current_user["user_id"],))
+    cursor = conn.execute("""
+        SELECT id, status, start_date, end_date 
+        FROM user_status 
+        WHERE user_id = ? 
+        ORDER BY ABS(julianday('now') - julianday(start_date)) ASC,
+                 start_date DESC
+    """, (current_user["user_id"],))
     statuses = [{"id": row['id'], "status": row['status'], "start_date": row['start_date'],
                  "end_date": row['end_date'] if row['end_date'] else None,
                  "is_active": row['end_date'] is None or row['end_date'] == ''} for row in cursor]
@@ -328,23 +384,71 @@ async def get_my_status(current_user=Depends(get_current_user)):
 @app.post("/api/v1/status")
 async def add_status(status_data: StatusAdd, current_user=Depends(get_current_user)):
     conn = get_db()
-    conn.execute("INSERT INTO user_status (user_id, status, start_date, end_date) VALUES (?, ?, ?, ?)",
-                 (current_user["user_id"], status_data.status, status_data.start_date, status_data.end_date if status_data.end_date else None))
+    
+    has_overlap, overlapping_status = check_status_overlap(current_user["user_id"], status_data.start_date, status_data.end_date)
+    
+    if has_overlap:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Пересечение с {overlapping_status}"
+        )
+    
+    end_date = status_data.end_date if status_data.end_date else None
+    
+    conn.execute("""
+        INSERT INTO user_status (user_id, status, start_date, end_date)
+        VALUES (?, ?, ?, ?)
+    """, (current_user["user_id"], status_data.status, status_data.start_date, end_date))
+    
     conn.commit()
     conn.close()
     return {"message": "Статус успешно добавлен", "success": True}
 
 @app.patch("/api/v1/status/{status_id}/close")
-async def close_status(status_id: int, current_user=Depends(get_current_user)):
+async def close_status(status_id: int, request: Request, current_user=Depends(get_current_user)):
     conn = get_db()
-    today = datetime.now().strftime('%d.%m.%Y')
-    if current_user["role"] == "admin":
-        conn.execute("UPDATE user_status SET end_date = ? WHERE id = ?", (today, status_id))
-    else:
-        conn.execute("UPDATE user_status SET end_date = ? WHERE id = ? AND user_id = ?", (today, status_id, current_user["user_id"]))
-    conn.commit()
-    conn.close()
-    return {"message": "Больничный закрыт", "success": True}
+    try:
+        data = await request.json() if request.headers.get("content-type") else {}
+        today = datetime.now().strftime('%d.%m.%Y')
+        end_date = data.get('end_date', today)
+        
+        cursor = conn.execute(
+            "SELECT user_id, start_date, status FROM user_status WHERE id = ?",
+            (status_id,)
+        )
+        status = cursor.fetchone()
+        
+        if not status:
+            raise HTTPException(status_code=404, detail="Статус не найден")
+        
+        if status['user_id'] != current_user["user_id"] and current_user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+        try:
+            start_date_obj = parse_date(status['start_date'])
+            end_date_obj = parse_date(end_date)
+            if end_date_obj < start_date_obj:
+                raise HTTPException(status_code=400, detail="Дата закрытия не может быть раньше даты начала")
+        except ValueError:
+            pass
+        
+        has_overlap, overlapping_status = check_status_overlap(current_user["user_id"], status['start_date'], end_date, status_id)
+        
+        if has_overlap:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Пересечение с {overlapping_status}"
+            )
+        
+        conn.execute(
+            "UPDATE user_status SET end_date = ? WHERE id = ?",
+            (end_date, status_id)
+        )
+        conn.commit()
+        
+        return {"message": "Больничный закрыт", "success": True}
+    finally:
+        conn.close()
 
 @app.delete("/api/v1/status/last")
 async def delete_last_status(current_user=Depends(get_current_user)):
@@ -356,6 +460,112 @@ async def delete_last_status(current_user=Depends(get_current_user)):
         conn.commit()
     conn.close()
     return {"message": "Последний статус удален", "success": True}
+
+@app.delete("/api/v1/status/{status_id}")
+async def delete_status_by_id(status_id: int, current_user=Depends(get_current_user)):
+    conn = get_db()
+    try:
+        cursor = conn.execute(
+            "SELECT user_id FROM user_status WHERE id = ?",
+            (status_id,)
+        )
+        status = cursor.fetchone()
+        
+        if not status:
+            raise HTTPException(status_code=404, detail="Статус не найден")
+        
+        if status['user_id'] != current_user["user_id"] and current_user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+        conn.execute("DELETE FROM user_status WHERE id = ?", (status_id,))
+        conn.commit()
+        
+        return {"message": "Статус удален", "success": True}
+    finally:
+        conn.close()
+
+@app.put("/api/v1/status/{status_id}")
+async def update_status_dates(
+    status_id: int,
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    conn = get_db()
+    try:
+        data = await request.json()
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        cursor = conn.execute(
+            "SELECT user_id, status FROM user_status WHERE id = ?",
+            (status_id,)
+        )
+        status = cursor.fetchone()
+        
+        if not status:
+            raise HTTPException(status_code=404, detail="Статус не найден")
+        
+        if status['user_id'] != current_user["user_id"] and current_user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+        has_overlap, overlapping_status = check_status_overlap(current_user["user_id"], start_date, end_date, status_id)
+        
+        if has_overlap:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Пересечение с {overlapping_status}"
+            )
+        
+        conn.execute(
+            "UPDATE user_status SET start_date = ?, end_date = ? WHERE id = ?",
+            (start_date, end_date, status_id)
+        )
+        conn.commit()
+        
+        return {"message": "Даты обновлены", "success": True}
+    finally:
+        conn.close()
+
+@app.patch("/api/v1/status/{status_id}/extend")
+async def extend_sick_leave(
+    status_id: int,
+    request: Request,
+    current_user=Depends(get_current_user)
+):
+    conn = get_db()
+    try:
+        data = await request.json()
+        end_date = data.get('end_date')
+        
+        cursor = conn.execute(
+            "SELECT user_id, start_date, status FROM user_status WHERE id = ?",
+            (status_id,)
+        )
+        status = cursor.fetchone()
+        
+        if not status:
+            raise HTTPException(status_code=404, detail="Статус не найден")
+        
+        if status['user_id'] != current_user["user_id"] and current_user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+        has_overlap, overlapping_status = check_status_overlap(current_user["user_id"], status['start_date'], end_date, status_id)
+        
+        if has_overlap:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Пересечение с {overlapping_status}"
+            )
+        
+        conn.execute(
+            "UPDATE user_status SET end_date = ? WHERE id = ?",
+            (end_date, status_id)
+        )
+        conn.commit()
+        
+        return {"message": "Больничный продлен", "success": True}
+    finally:
+        conn.close()
 
 @app.get("/api/v1/status/current")
 async def get_current_status_stats(current_user=Depends(get_current_user)):
