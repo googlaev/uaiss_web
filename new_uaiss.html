@@ -959,15 +959,7 @@
             const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0 };
             
             return `
-                <div class="content">
-                    <div class="card welcome-card">
-                        <div class="card-header">
-                            <div class="card-title">Добро пожаловать, ${currentUser.name}!</div>
-                            ${currentUser.role === 'admin' ? '<span class="admin-badge">👑 Администратор</span>' : ''}
-                        </div>
-                        <p style="margin-top: 8px; opacity: 0.9;">Система управления экзаменами и статусами</p>
-                    </div>
-                    
+                <div class="content">                  
                     <div class="status-stats-card">
                         <div class="status-stats-title">📊 Статистика статусов</div>
                         <div class="status-stats-grid">
