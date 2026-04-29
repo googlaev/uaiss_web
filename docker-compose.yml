@@ -7,3 +7,9 @@ services:
     volumes:
       - ./exams.db:/app/exams.db
     restart: unless-stopped
+    network_mode: bridge
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
