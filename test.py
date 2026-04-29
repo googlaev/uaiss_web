@@ -144,6 +144,16 @@ def parse_date(date_str: str) -> datetime:
 def format_date(date: datetime) -> str:
     return date.strftime('%d.%m.%Y')
 
+def is_status_active(end_date_str: Optional[str]) -> bool:
+    """Проверяет, активен ли статус (дата окончания не наступила)"""
+    if end_date_str is None or end_date_str == '':
+        return True
+    try:
+        end_date = datetime.strptime(end_date_str, '%d.%m.%Y')
+        return end_date >= datetime.now()
+    except:
+        return False
+
 def check_status_overlap(user_id: int, start_date: str, end_date: Optional[str] = None, exclude_status_id: Optional[int] = None) -> tuple:
     conn = get_db()
     try:
@@ -167,15 +177,8 @@ def check_status_overlap(user_id: int, start_date: str, end_date: Optional[str] 
             status_start = parse_date(status['start_date'])
             status_end = parse_date(status['end_date']) if status['end_date'] else None
             
-            # Очищаем статус от эмодзи (смайликов)
             status_text = status['status']
-            # Убираем конкретные эмодзи
-            status_text = status_text.replace('🤒', '')
-            status_text = status_text.replace('✈️', '')
-            status_text = status_text.replace('🏖️', '')
-            status_text = status_text.replace('🟢', '')
-            # Убираем лишние пробелы
-            status_text = status_text.strip()
+            status_text = status_text.replace('🤒', '').replace('✈️', '').replace('🏖️', '').replace('🟢', '').strip()
             
             if new_end is None and status_end is None:
                 return (True, status_text)
@@ -367,17 +370,40 @@ async def get_exam_types():
 
 @app.get("/api/v1/status/my")
 async def get_my_status(current_user=Depends(get_current_user)):
+    """Возвращает статусы пользователя с правильным определением активного (с учетом даты окончания)"""
     conn = get_db()
     cursor = conn.execute("""
         SELECT id, status, start_date, end_date 
         FROM user_status 
         WHERE user_id = ? 
-        ORDER BY ABS(julianday('now') - julianday(start_date)) ASC,
-                 start_date DESC
+        ORDER BY start_date DESC
     """, (current_user["user_id"],))
-    statuses = [{"id": row['id'], "status": row['status'], "start_date": row['start_date'],
-                 "end_date": row['end_date'] if row['end_date'] else None,
-                 "is_active": row['end_date'] is None or row['end_date'] == ''} for row in cursor]
+    
+    statuses = []
+    today = datetime.now()
+    
+    for row in cursor:
+        is_active = False
+        # Статус активен если:
+        # 1. Нет даты окончания (открытый статус)
+        # 2. ИЛИ дата окончания есть, но еще не наступила (>= сегодня)
+        if row['end_date'] is None or row['end_date'] == '':
+            is_active = True
+        else:
+            try:
+                end_date = datetime.strptime(row['end_date'], '%d.%m.%Y')
+                if end_date >= today:
+                    is_active = True
+            except:
+                pass
+        
+        statuses.append({
+            "id": row['id'],
+            "status": row['status'],
+            "start_date": row['start_date'],
+            "end_date": row['end_date'] if row['end_date'] else None,
+            "is_active": is_active
+        })
     conn.close()
     return statuses
 
@@ -572,24 +598,82 @@ async def get_current_status_stats(current_user=Depends(get_current_user)):
     conn = get_db()
     cursor = conn.execute("SELECT user_id, full_name FROM users")
     users = cursor.fetchall()
+    
     stats = {"total": len(users), "working": 0, "sick": 0, "trip": 0, "vacation": 0, "employees": []}
+    today = datetime.now()
+    
     for user in users:
-        cursor = conn.execute("SELECT status FROM user_status WHERE user_id = ? AND (end_date IS NULL OR end_date = '') ORDER BY start_date DESC LIMIT 1",
-                              (user['user_id'],))
-        status_row = cursor.fetchone()
-        if status_row:
-            status = status_row['status']
-            if "Больничный" in status:
-                stats["sick"] += 1; status_type = "sick"
-            elif "Командировка" in status:
-                stats["trip"] += 1; status_type = "trip"
-            elif "Отпуск" in status:
-                stats["vacation"] += 1; status_type = "vacation"
+        cursor = conn.execute("""
+            SELECT status, start_date, end_date FROM user_status 
+            WHERE user_id = ? 
+            ORDER BY start_date DESC
+        """, (user['user_id'],))
+        
+        active_status = None
+        for row in cursor:
+            is_active = False
+            if row['end_date'] is None or row['end_date'] == '':
+                is_active = True
             else:
-                stats["working"] += 1; status_type = "working"
+                try:
+                    end_date = datetime.strptime(row['end_date'], '%d.%m.%Y')
+                    if end_date >= today:
+                        is_active = True
+                except:
+                    pass
+            
+            if is_active:
+                active_status = row
+                break
+        
+        if active_status:
+            status = active_status['status']
+            start_date = active_status['start_date']
+            end_date = active_status['end_date'] if active_status['end_date'] else 'настоящее время'
+            period = f"{start_date} — {end_date}"
+            
+            # Определяем тип статуса
+            if "Больничный" in status:
+                stats["sick"] += 1
+                status_type = "sick"
+                status_text = "🤒 Больничный"
+            elif "Командировка" in status:
+                stats["trip"] += 1
+                status_type = "trip"
+                status_text = "✈️ Командировка"
+            elif "Отпуск" in status:
+                stats["vacation"] += 1
+                status_type = "vacation"
+                status_text = "🏖️ Отпуск"
+            else:
+                stats["working"] += 1
+                status_type = "working"
+                status_text = "🟢 На рабочем месте"
+                period = ""
         else:
-            stats["working"] += 1; status_type = "working"
-        stats["employees"].append({"id": user['user_id'], "name": user['full_name'], "status_type": status_type})
+            stats["working"] += 1
+            status_type = "working"
+            status_text = "🟢 На рабочем месте"
+            period = ""
+            start_date = ""
+            end_date = ""
+        
+        stats["employees"].append({
+            "id": user['user_id'],
+            "name": user['full_name'],
+            "status_type": status_type,
+            "status_text": status_text,
+            "start_date": start_date,
+            "end_date": end_date,
+            "period": period
+        })
+    
+    if stats["total"] > 0:
+        stats["working_percent"] = round(stats["working"] / stats["total"] * 100)
+        stats["sick_percent"] = round(stats["sick"] / stats["total"] * 100)
+        stats["trip_percent"] = round(stats["trip"] / stats["total"] * 100)
+        stats["vacation_percent"] = round(stats["vacation"] / stats["total"] * 100)
+    
     conn.close()
     return stats
 
