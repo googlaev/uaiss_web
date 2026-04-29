@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
@@ -10,6 +10,8 @@ import hashlib
 import jwt
 import secrets
 import os
+import csv
+from io import StringIO
 
 app = FastAPI(title="UAISS Web API", version="1.0.0")
 
@@ -199,6 +201,62 @@ async def update_email(email_data: EmailUpdate, current_user=Depends(get_current
         conn.execute("UPDATE users SET email = ? WHERE user_id = ?", (email_data.email, current_user["user_id"]))
         conn.commit()
         return {"message": "Email успешно обновлен", "success": True}
+    finally:
+        conn.close()
+
+# CSV отчет - доступ всем авторизованным пользователям
+@app.get("/api/v1/exams/report/csv")
+async def export_exams_report(current_user=Depends(get_current_user)):
+    """Экспорт всех экзаменов сотрудников в CSV"""
+    conn = get_db()
+    try:
+        cursor = conn.execute("""
+            SELECT 
+                u.full_name,
+                e.name as exam_name,
+                e.date as exam_date,
+                e.duration,
+                et.duration as duration_months
+            FROM users u
+            LEFT JOIN exams e ON u.user_id = e.user_id
+            LEFT JOIN exam_types et ON e.name = et.name
+            WHERE e.name IS NOT NULL
+            ORDER BY u.full_name, e.date DESC
+        """)
+        
+        rows = cursor.fetchall()
+        
+        output = StringIO()
+        output.write('\uFEFF')  # BOM для корректного отображения русских букв
+        writer = csv.writer(output, delimiter=';')
+        
+        # Заголовки: Фамилия, Тип экзамена, Дата сдачи, Действителен до
+        writer.writerow(['Фамилия', 'Тип экзамена', 'Дата сдачи', 'Действителен до'])
+        
+        for row in rows:
+            try:
+                exam_date = datetime.strptime(row['exam_date'], '%d.%m.%Y')
+                duration_months = int(row['duration_months']) if row['duration_months'] else int(row['duration']) if row['duration'] else 0
+                end_date = exam_date + timedelta(days=duration_months * 30)
+                
+                writer.writerow([
+                    row['full_name'],
+                    row['exam_name'],
+                    row['exam_date'],
+                    end_date.strftime('%d.%m.%Y')
+                ])
+            except Exception as e:
+                print(f"Ошибка обработки: {e}")
+                continue
+        
+        # Имя файла: exams_ДД_ММ_ГГГГ.csv
+        filename = f"exams_{datetime.now().strftime('%d_%m_%Y')}.csv"
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv; charset=utf-8-sig",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
     finally:
         conn.close()
 
