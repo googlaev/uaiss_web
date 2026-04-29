@@ -360,6 +360,71 @@ async def add_exam(exam_data: ExamAdd, current_user=Depends(get_current_user)):
     conn.close()
     return {"message": "Экзамен успешно добавлен", "success": True}
 
+@app.put("/api/v1/exams/{exam_id}")
+async def update_exam_date(exam_id: int, request: Request, current_user=Depends(get_current_user)):
+    """Обновление даты сдачи экзамена"""
+    conn = get_db()
+    try:
+        data = await request.json()
+        new_date_str = data.get('date')
+        
+        # Проверяем, что экзамен принадлежит пользователю
+        cursor = conn.execute(
+            "SELECT user_id FROM exams WHERE id = ?",
+            (exam_id,)
+        )
+        exam = cursor.fetchone()
+        
+        if not exam:
+            raise HTTPException(status_code=404, detail="Экзамен не найден")
+        
+        if exam['user_id'] != current_user["user_id"] and current_user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+        # Проверяем формат даты
+        try:
+            new_date = datetime.strptime(new_date_str, '%d.%m.%Y')
+            if new_date > datetime.now():
+                raise HTTPException(status_code=400, detail="Нельзя выбрать дату из будущего")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Неверный формат даты. Используйте ДД.ММ.ГГГГ")
+        
+        # Обновляем дату
+        conn.execute(
+            "UPDATE exams SET date = ? WHERE id = ?",
+            (new_date_str, exam_id)
+        )
+        conn.commit()
+        
+        return {"message": "Дата экзамена обновлена", "success": True}
+    finally:
+        conn.close()
+
+@app.delete("/api/v1/exams/{exam_id}")
+async def delete_exam(exam_id: int, current_user=Depends(get_current_user)):
+    """Удаление экзамена"""
+    conn = get_db()
+    try:
+        # Проверяем, что экзамен принадлежит пользователю
+        cursor = conn.execute(
+            "SELECT user_id FROM exams WHERE id = ?",
+            (exam_id,)
+        )
+        exam = cursor.fetchone()
+        
+        if not exam:
+            raise HTTPException(status_code=404, detail="Экзамен не найден")
+        
+        if exam['user_id'] != current_user["user_id"] and current_user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+        conn.execute("DELETE FROM exams WHERE id = ?", (exam_id,))
+        conn.commit()
+        
+        return {"message": "Экзамен удален", "success": True}
+    finally:
+        conn.close()
+
 @app.get("/api/v1/exam-types")
 async def get_exam_types():
     conn = get_db()

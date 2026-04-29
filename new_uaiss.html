@@ -106,6 +106,10 @@
         .sick-color { color: var(--sick); }
         .trip-color { color: var(--business-trip); }
         .vacation-color { color: var(--vacation); }
+        /* Дополнительные стили для красной индикации */
+        .expiring-critical {border-left: 4px solid var(--danger) !important;
+        background: rgba(239, 68, 68, 0.05) !important;}
+        .text-critical { color: var(--danger) !important;font-weight: bold !important;}
         .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
     </style>
 </head>
@@ -332,109 +336,165 @@
         }
 
         // Главный экран - только статус (без дат)
-        function HomeView() {
-            if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
-            const expiringCount = myExams.filter(e => e.status === 'Истекает').length;
-            const activeStatus = getActiveStatus();
-            const activeStatusText = activeStatus ? activeStatus.status : "🟢 На рабочем месте";
-            const upcomingExams = myExams.filter(e => e.status === 'Истекает').slice(0, 3);
-            const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0 };
+        //главный экран
+function HomeView() {
+    if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
+    const expiringCount = myExams.filter(e => e.status === 'Истекает').length;
+    const criticalCount = myExams.filter(e => e.status === 'Истекает' && e.days_left <= 7).length;
+    const activeStatus = getActiveStatus();
+    const activeStatusText = activeStatus ? activeStatus.status : "🟢 На рабочем месте";
+    const upcomingExams = myExams.filter(e => e.status === 'Истекает').slice(0, 3);
+    const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0 };
+    
+    return `
+        <div class="content">
+            <div class="status-stats-card">
+                <div class="status-stats-title">📊 Статистика статусов</div>
+                <div class="status-stats-grid">
+                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('working')">
+                        <div class="status-stat-emoji">🟢</div>
+                        <div class="status-stat-count working-color">${stats.working || 0}</div>
+                        <div class="status-stat-label">Работают</div>
+                    </div>
+                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('sick')">
+                        <div class="status-stat-emoji">🤒</div>
+                        <div class="status-stat-count sick-color">${stats.sick || 0}</div>
+                        <div class="status-stat-label">Больничный</div>
+                    </div>
+                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('trip')">
+                        <div class="status-stat-emoji">✈️</div>
+                        <div class="status-stat-count trip-color">${stats.trip || 0}</div>
+                        <div class="status-stat-label">Командировка</div>
+                    </div>
+                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('vacation')">
+                        <div class="status-stat-emoji">🏖️</div>
+                        <div class="status-stat-count vacation-color">${stats.vacation || 0}</div>
+                        <div class="status-stat-label">Отпуск</div>
+                    </div>
+                </div>
+            </div>
             
-            return `
-                <div class="content">
-                    <div class="status-stats-card">
-                        <div class="status-stats-title">📊 Статистика статусов</div>
-                        <div class="status-stats-grid">
-                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('working')">
-                                <div class="status-stat-emoji">🟢</div>
-                                <div class="status-stat-count working-color">${stats.working || 0}</div>
-                                <div class="status-stat-label">Работают</div>
-                            </div>
-                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('sick')">
-                                <div class="status-stat-emoji">🤒</div>
-                                <div class="status-stat-count sick-color">${stats.sick || 0}</div>
-                                <div class="status-stat-label">Больничный</div>
-                            </div>
-                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('trip')">
-                                <div class="status-stat-emoji">✈️</div>
-                                <div class="status-stat-count trip-color">${stats.trip || 0}</div>
-                                <div class="status-stat-label">Командировка</div>
-                            </div>
-                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('vacation')">
-                                <div class="status-stat-emoji">🏖️</div>
-                                <div class="status-stat-count vacation-color">${stats.vacation || 0}</div>
-                                <div class="status-stat-label">Отпуск</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="stats-grid">
-                        <div class="stat-card" onclick="window.changeView('exams')">
-                            <div class="stat-value">${myExams.length}</div>
-                            <div class="stat-label">Мои экзамены</div>
-                        </div>
-                        <div class="stat-card" onclick="window.changeView('exams')">
-                            <div class="stat-value" style="color: var(--warning);">${expiringCount}</div>
-                            <div class="stat-label">Истекают скоро</div>
-                        </div>
-                    </div>
-                    
-                    <div class="card card-clickable" onclick="window.changeView('exams')">
-                        <div class="card-header"><div class="card-title">📋 Мои ближайшие экзамены</div><span style="font-size: 12px;">→</span></div>
-                        ${upcomingExams.length > 0 ? upcomingExams.map(exam => `
-                            <div class="exam-card" style="margin-bottom: 12px;">
-                                <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
-                                <div class="exam-info">
-                                    <div class="exam-name">${exam.type}</div>
-                                    <div class="exam-date">Истекает: ${exam.expires_at} • ${exam.days_left} дней</div>
-                                </div>
-                                <span class="badge badge-expiring">⚠️ ${exam.status}</span>
-                            </div>
-                        `).join('') : '<div class="empty-state"><p>✅ Нет истекающих экзаменов</p></div>'}
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card-header"><div class="card-title">👤 Мой текущий статус</div></div>
-                        <div class="status-card">
-                            <span class="status-badge status-working">${activeStatusText}</span>
-                            <button class="btn btn-outline" onclick="window.changeView('status')">Изменить</button>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; margin-top: 16px;">
-                        <button class="btn btn-primary" style="flex: 1;" onclick="window.changeView('add-exam')">+ Отметить экзамен</button>
-                        <button class="btn btn-outline" style="flex: 1;" onclick="window.changeView('status')">Изменить статус</button>
-                    </div>
+            <div class="stats-grid">
+                <div class="stat-card" onclick="window.changeView('exams')">
+                    <div class="stat-value">${myExams.length}</div>
+                    <div class="stat-label">Мои экзамены</div>
                 </div>
-            `;
-        }
+                <div class="stat-card" onclick="window.changeView('exams')">
+                    <div class="stat-value" style="color: ${criticalCount > 0 ? 'var(--danger)' : 'var(--warning)'};">${expiringCount}</div>
+                    <div class="stat-label">Истекают скоро</div>
+                </div>
+            </div>
+            
+            <div class="card card-clickable" onclick="window.changeView('exams')">
+                <div class="card-header">
+                    <div class="card-title">📋 Мои ближайшие экзамены</div>
+                    <span style="font-size: 12px;">→</span>
+                </div>
+                ${upcomingExams.length > 0 ? upcomingExams.map(exam => {
+                    const isCritical = exam.days_left <= 7;
+                    const cardStyle = isCritical ? 'border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.05);' : '';
+                    const dateColor = isCritical ? 'style="color: var(--danger); font-weight: bold;"' : '';
+                    return `
+                        <div class="exam-card" style="margin-bottom: 12px; ${cardStyle}">
+                            <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
+                            <div class="exam-info">
+                                <div class="exam-name">${exam.type}</div>
+                                <div class="exam-date" ${dateColor}>Истекает: ${exam.expires_at} • ${exam.days_left} дней</div>
+                            </div>
+                            <span class="badge ${isCritical ? 'badge-expired' : 'badge-expiring'}">${isCritical ? '🔴 КРИТИЧЕСКИ!' : '⚠️ Истекает'}</span>
+                        </div>
+                    `;
+                }).join('') : '<div class="empty-state"><p>✅ Нет истекающих экзаменов</p></div>'}
+            </div>
+            
+            <div class="card">
+                <div class="card-header"><div class="card-title">👤 Мой текущий статус</div></div>
+                <div class="status-card">
+                    <span class="status-badge status-working">${activeStatusText}</span>
+                    <button class="btn btn-outline" onclick="window.changeView('status')">Изменить</button>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-top: 16px;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="window.changeView('add-exam')">+ Отметить экзамен</button>
+                <button class="btn btn-outline" style="flex: 1;" onclick="window.changeView('status')">Изменить статус</button>
+            </div>
+        </div>
+    `;
+}
 
-        function MyExamsView() {
-            if (isLoading) return `<div class="loading">⏳ Загрузка экзаменов...</div>`;
-            return `
-                <div class="content">
-                    <div class="card" style="background: linear-gradient(135deg, var(--success), var(--accent)); color: white; margin-bottom: 16px;">
-                        <div class="card-header">
-                            <div class="card-title">📥 Экспорт данных</div>
-                        </div>
-                        <div style="display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
-                            <span>Скачать отчет по всем экзаменам сотрудников</span>
-                            <button class="btn" style="background: white; color: var(--accent);" onclick="window.downloadExamsReport()">
-                                📥 Скачать отчет
-                            </button>
+        //экран мои экзамены
+//экран мои экзамены
+function MyExamsView() {
+    if (isLoading) return `<div class="loading">⏳ Загрузка экзаменов...</div>`;
+    return `
+        <div class="content">
+            <div class="card" style="background: linear-gradient(135deg, var(--success), var(--accent)); color: white; margin-bottom: 16px;">
+                <div class="card-header">
+                    <div class="card-title">📥 Экспорт данных</div>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                    <span>Скачать отчет по всем экзаменам сотрудников</span>
+                    <button class="btn" style="background: white; color: var(--accent);" onclick="window.downloadExamsReport()">
+                        📥 Скачать отчет
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card-header"><div class="card-title">📋 Мои экзамены</div><button class="btn btn-outline" onclick="window.changeView('add-exam')">+ Добавить</button></div>
+            ${myExams.length > 0 ? myExams.map(exam => {
+                // Определяем стиль в зависимости от дней до окончания
+                let badgeClass = 'badge-active';
+                let badgeText = '✅ Действующий';
+                let cardBorderStyle = '';
+                let daysLeft = exam.days_left;
+                
+                if (exam.status === 'Просрочен') {
+                    badgeClass = 'badge-expired';
+                    badgeText = '❌ Просрочен';
+                    cardBorderStyle = 'border-left: 4px solid var(--danger);';
+                } else if (exam.status === 'Истекает') {
+                    if (daysLeft <= 7) {
+                        // КРАСНАЯ ИНДИКАЦИЯ - осталось 7 дней или меньше
+                        badgeClass = 'badge-expired';
+                        badgeText = `🔴 Истекает через ${daysLeft} дн.`;
+                        cardBorderStyle = 'border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.05);';
+                    } else {
+                        badgeClass = 'badge-expiring';
+                        badgeText = `⚠️ Истекает через ${daysLeft} дн.`;
+                        cardBorderStyle = 'border-left: 4px solid var(--warning);';
+                    }
+                } else {
+                    badgeClass = 'badge-active';
+                    badgeText = '✅ Действующий';
+                }
+                
+                return `
+                    <div class="card" style="${cardBorderStyle}">
+                        <div class="exam-card">
+                            <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
+                            <div class="exam-info">
+                                <div class="exam-name">${exam.type}</div>
+                                <div class="exam-date">Сдан: ${exam.date}</div>
+                                <div class="exam-date">Действует до: ${exam.expires_at}</div>
+                                <div class="exam-date ${daysLeft <= 7 && exam.status !== 'Просрочен' ? 'danger' : ''}" style="${daysLeft <= 7 && exam.status !== 'Просрочен' ? 'color: var(--danger); font-weight: bold;' : ''}">
+                                    Осталось: ${daysLeft} дней
+                                </div>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                <span class="badge ${badgeClass}">${badgeText}</span>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="window.editExamDate(${exam.id}, '${exam.date}')">✏️ Изменить дату</button>
+                                    <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px; color: var(--danger);" onclick="window.deleteExam(${exam.id}, '${exam.type}')">🗑️ Удалить</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div class="card-header"><div class="card-title">📋 Мои экзамены</div><button class="btn btn-outline" onclick="window.changeView('add-exam')">+ Добавить</button></div>
-                    ${myExams.length > 0 ? myExams.map(exam => {
-                        let badgeClass = 'badge-active', badgeText = '✅ Действующий';
-                        if (exam.status === 'Истекает') { badgeClass = 'badge-expiring'; badgeText = '⚠️ Истекает'; }
-                        else if (exam.status === 'Просрочен') { badgeClass = 'badge-expired'; badgeText = '❌ Просрочен'; }
-                        return `<div class="card"><div class="exam-card"><div class="exam-icon">${getExamTypeEmoji(exam.type)}</div><div class="exam-info"><div class="exam-name">${exam.type}</div><div class="exam-date">Сдан: ${exam.date}</div><div class="exam-date">Действует до: ${exam.expires_at}</div><div class="exam-date">Осталось: ${exam.days_left} дней</div></div><span class="badge ${badgeClass}">${badgeText}</span></div></div>`;
-                    }).join('') : `<div class="empty-state"><p>📭 Экзамены не найдены</p><button class="btn btn-primary" onclick="window.changeView('add-exam')">Добавить первый экзамен</button></div>`}
-                </div>
-            `;
-        }
+                `;
+            }).join('') : `<div class="empty-state"><p>📭 Экзамены не найдены</p><button class="btn btn-primary" onclick="window.changeView('add-exam')">Добавить первый экзамен</button></div>`}
+        </div>
+    `;
+}
 
         function AddExamView() {
             return `
@@ -1039,6 +1099,69 @@
         }
         setDarkMode(isDarkMode);
         render();
+        // Редактирование даты экзамена
+window.editExamDate = async (examId, currentDate) => {
+    const newDate = prompt('Введите новую дату сдачи экзамена в формате ДД.ММ.ГГГГ:', currentDate);
+    
+    if (!newDate) return;
+    
+    // Проверка формата даты
+    const dateRegex = /^\d{2}\.\d{2}\.\d{4}$/;
+    if (!dateRegex.test(newDate)) {
+        showToast('❌ Неверный формат даты. Используйте ДД.ММ.ГГГГ');
+        return;
+    }
+    
+    // Проверка, что дата не из будущего
+    const [day, month, year] = newDate.split('.');
+    const examDate = new Date(year, month - 1, day);
+    if (examDate > new Date()) {
+        showToast('❌ Нельзя выбрать дату из будущего');
+        return;
+    }
+    
+    try {
+        const response = await apiRequest(`/exams/${examId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ date: newDate })
+        });
+        
+        if (response.ok) {
+            showToast('✅ Дата экзамена обновлена');
+            await loadAllData();
+            render();
+        } else {
+            const error = await response.json();
+            showToast(`❌ ${error.detail || 'Ошибка обновления'}`);
+        }
+    } catch (error) {
+        showToast('❌ Ошибка соединения');
+    }
+};
+
+// Удаление экзамена с подтверждением
+window.deleteExam = async (examId, examName) => {
+    const userConfirmed = confirm(`Вы уверены, что хотите удалить экзамен:\n"${examName}"?`);
+    
+    if (!userConfirmed) return;
+    
+    try {
+        const response = await apiRequest(`/exams/${examId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showToast('✅ Экзамен удален');
+            await loadAllData();
+            render();
+        } else {
+            const error = await response.json();
+            showToast(`❌ ${error.detail || 'Ошибка удаления'}`);
+        }
+    } catch (error) {
+        showToast('❌ Ошибка соединения');
+    }
+};
     </script>
 </body>
 </html>
