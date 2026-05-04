@@ -66,6 +66,8 @@ class PasswordChange(BaseModel):
 class EmailUpdate(BaseModel):
     email: str
 
+# Найдите функцию check_and_fix_database() и замените добавление тестовых пользователей:
+
 def check_and_fix_database():
     print("\n🔍 Проверка структуры базы данных...")
     conn = sqlite3.connect('exams.db')
@@ -96,30 +98,48 @@ def check_and_fix_database():
     def hash_password(pwd):
         return hashlib.sha256(pwd.encode()).hexdigest()
     
-    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'user@uaiss.ru'")
+    # ИЗМЕНЕНО: логины теперь без @uaiss.ru
+    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'smirnov'")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO users (full_name, login, password_hash, role) VALUES (?, ?, ?, ?)",
-                       ("Алексей Смирнов", "user@uaiss.ru", hash_password("123456"), "employee"))
-        print("✅ Добавлен: user@uaiss.ru / 123456")
+        cursor.execute("INSERT INTO users (full_name, login, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
+                       ("Алексей Смирнов", "smirnov", hash_password("123456"), "employee", "user@example.com"))
+        print("✅ Добавлен: smirnov / 123456 (Алексей Смирнов)")
     
-    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'admin@uaiss.ru'")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'morozova'")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO users (full_name, login, password_hash, role) VALUES (?, ?, ?, ?)",
-                       ("Екатерина Морозова", "admin@uaiss.ru", hash_password("admin123"), "admin"))
-        print("✅ Добавлен: admin@uaiss.ru / admin123")
+        cursor.execute("INSERT INTO users (full_name, login, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
+                       ("Екатерина Морозова", "morozova", hash_password("admin123"), "admin", "admin@example.com"))
+        print("✅ Добавлен: morozova / admin123 (Екатерина Морозова - Администратор)")
     
-    cursor.execute("SELECT user_id, full_name FROM users WHERE login IS NULL")
-    users_without_login = cursor.fetchall()
-    for user in users_without_login:
-        name_parts = user[1].split()
-        login = f"{name_parts[0].lower() if name_parts else f'user_{user[0]}'}@uaiss.ru"
-        cursor.execute("UPDATE users SET login = ?, password_hash = ?, role = 'employee' WHERE user_id = ?",
-                       (login, hash_password("123456"), user[0]))
-        print(f"✅ Обновлен: {user[1]} -> {login} / 123456")
+    # Обновление существующих пользователей (убираем @uaiss.ru из логинов)
+    cursor.execute("SELECT user_id, login FROM users WHERE login LIKE '%@uaiss.ru'")
+    users_with_email_login = cursor.fetchall()
+    for user in users_with_email_login:
+        # Извлекаем фамилию из full_name или логина
+        cursor.execute("SELECT full_name FROM users WHERE user_id = ?", (user['user_id'],))
+        user_data = cursor.fetchone()
+        if user_data:
+            # Берем фамилию из полного имени
+            name_parts = user_data['full_name'].split()
+            if len(name_parts) >= 1:
+                # Транслитерация или直接用 фамилия
+                surname = name_parts[-1].lower()  # Берем последнюю часть как фамилию
+                # Для кириллицы можно оставить как есть
+                new_login = surname
+                
+                # Проверяем, что такой логин еще не существует
+                cursor.execute("SELECT COUNT(*) FROM users WHERE login = ? AND user_id != ?", (new_login, user['user_id']))
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute("UPDATE users SET login = ? WHERE user_id = ?", (new_login, user['user_id']))
+                    print(f"✅ Логин обновлен: {user['login']} -> {new_login}")
     
     conn.commit()
     conn.close()
-    print("\n✅ База данных готова к работе!\n")
+    print("\n✅ База данных готова к работе!")
+    print("\n🔑 Тестовые учетные записи:")
+    print("   Сотрудник:   login: smirnov   / password: 123456")
+    print("   Администратор: login: morozova / password: admin123")
+    print()
     return True
 
 def get_db():
@@ -237,7 +257,7 @@ def send_email_async(to_email: str, subject: str, body: str):
     thread.start()
 
 def check_and_send_notifications_sync():
-    """Проверка и отправка уведомлений (для планировщика)"""
+    """Проверка экзаменов и отправка уведомлений"""
     print(f"\n🕐 Проверка экзаменов в {datetime.now().strftime('%d.%m.%Y %H:%M')}")
     
     conn = sqlite3.connect('exams.db')
@@ -248,99 +268,155 @@ def check_and_send_notifications_sync():
     cursor.execute("""
         SELECT u.user_id, u.full_name, u.email, 
                e.id as exam_id, e.name as exam_name, 
-               e.date as exam_date, e.duration
+               e.date as exam_date, e.duration,
+               e.last_notification_day
         FROM users u
         JOIN exams e ON u.user_id = e.user_id
         WHERE u.email IS NOT NULL AND u.email != ''
     """)
     
-    users_exams = {}
+    today = datetime.now().date()
+    notifications_sent = 0
+    
+    # Словарь для хранения уведомлений по дням
+    notifications_map = {}  # {user_email: {'name': '', 'exams': {30: [], 7: [], 3: [], 2: [], 1: []}}}
+    
     for row in cursor.fetchall():
-        if row['user_id'] not in users_exams:
-            users_exams[row['user_id']] = {
-                'name': row['full_name'],
-                'email': row['email'],
-                'exams': []
-            }
-        
         try:
-            exam_date = datetime.strptime(row['exam_date'], '%d.%m.%Y')
+            exam_date = datetime.strptime(row['exam_date'], '%d.%m.%Y').date()
             duration_months = int(row['duration'])
-            end_date = exam_date + timedelta(days=duration_months * 30)
-            days_left = (end_date - datetime.now()).days
             
-            users_exams[row['user_id']]['exams'].append({
-                'name': row['exam_name'],
-                'days_left': days_left,
-                'expires_at': end_date.strftime('%d.%m.%Y')
-            })
-        except:
+            # Вычисляем дату окончания
+            # Простое добавление месяцев (приблизительно)
+            year = exam_date.year + (exam_date.month + duration_months - 1) // 12
+            month = (exam_date.month + duration_months - 1) % 12 + 1
+            day = exam_date.day
+            # Корректировка дня для последних чисел месяца
+            from calendar import monthrange
+            last_day = monthrange(year, month)[1]
+            end_day = min(day, last_day)
+            end_date = date(year, month, end_day)
+            
+            days_left = (end_date - today).days
+            
+            # Определяем, нужно ли отправить уведомление (точные дни: 30, 7, 3, 2, 1)
+            notify_days = [30, 7, 3, 2, 1]
+            notify_day = None
+            
+            for nd in notify_days:
+                if days_left == nd:
+                    notify_day = nd
+                    break
+            
+            # Также проверяем просроченные экзамены (days_left < 0)
+            is_expired = days_left < 0
+            
+            if notify_day is not None or is_expired:
+                email = row['email']
+                if email not in notifications_map:
+                    notifications_map[email] = {
+                        'name': row['full_name'],
+                        'exams': {30: [], 7: [], 3: [], 2: [], 1: [], 'expired': []}
+                    }
+                
+                exam_info = {
+                    'name': row['exam_name'],
+                    'end_date': end_date.strftime('%d.%m.%Y'),
+                    'days_left': days_left
+                }
+                
+                if is_expired:
+                    notifications_map[email]['exams']['expired'].append(exam_info)
+                elif notify_day is not None:
+                    notifications_map[email]['exams'][notify_day].append(exam_info)
+                    
+        except Exception as e:
+            print(f"Ошибка обработки экзамена: {e}")
             continue
     
     conn.close()
     
-    notifications_sent = 0
-    
-    for user_id, user_data in users_exams.items():
-        # Категоризируем экзамены
-        expired = [e for e in user_data['exams'] if e['days_left'] <= 0]
-        urgent = [e for e in user_data['exams'] if 0 < e['days_left'] <= 3]
-        critical = [e for e in user_data['exams'] if 3 < e['days_left'] <= 7]
-        soon = [e for e in user_data['exams'] if 7 < e['days_left'] <= 30]
-        
-        if not expired and not urgent and not critical and not soon:
-            continue
-        
-        subject = f"⚠️ Уведомление об экзаменах - {user_data['name']}"
+    # Отправляем уведомления
+    for email, data in notifications_map.items():
+        subject = f"📋 Уведомление об экзаменах - {data['name']}"
         
         body = f"""
-Здравствуйте, {user_data['name']}!
+Здравствуйте, {data['name']}!
 
 Система уведомляет вас о статусе ваших экзаменов.
 
 {'=' * 50}
 
 """
-        if expired:
+        # Просроченные экзамены
+        if data['exams']['expired']:
             body += "🔴 ПРОСРОЧЕННЫЕ ЭКЗАМЕНЫ:\n"
-            for exam in expired:
+            for exam in data['exams']['expired']:
                 body += f"""
    ❌ {exam['name']}
       • Просрочен на {abs(exam['days_left'])} дней
-      • Действовал до: {exam['expires_at']}
+      • Действовал до: {exam['end_date']}
       • НЕОБХОДИМО СРОЧНО ПЕРЕСДАТЬ!
 
 """
         
-        if urgent:
-            body += "🔴 КРИТИЧЕСКИ ВАЖНО! (1-3 дня):\n"
-            for exam in urgent:
+        # Уведомление за 30 дней
+        if data['exams'][30]:
+            body += "📅 ИСТЕКАЕТ ЧЕРЕЗ 30 ДНЕЙ:\n"
+            for exam in data['exams'][30]:
+                body += f"""
+   🟡 {exam['name']}
+      • Истекает через: {exam['days_left']} дней
+      • Действует до: {exam['end_date']}
+      • Рекомендуется запланировать пересдачу
+
+"""
+        
+        # Уведомление за 7 дней
+        if data['exams'][7]:
+            body += "🟠 ИСТЕКАЕТ ЧЕРЕЗ 7 ДНЕЙ:\n"
+            for exam in data['exams'][7]:
+                body += f"""
+   🟠 {exam['name']}
+      • Истекает через: {exam['days_left']} дней
+      • Действует до: {exam['end_date']}
+      • Рекомендуется запланировать пересдачу
+
+"""
+        
+        # Уведомление за 3 дня
+        if data['exams'][3]:
+            body += "🔴 ИСТЕКАЕТ ЧЕРЕЗ 3 ДНЯ:\n"
+            for exam in data['exams'][3]:
                 body += f"""
    🔴 {exam['name']}
-      • Осталось дней: {exam['days_left']}
-      • Действует до: {exam['expires_at']}
+      • Истекает через: {exam['days_left']} дней
+      • Действует до: {exam['end_date']}
       • СРОЧНО ПРОДЛИТЕ ЭКЗАМЕН!
 
 """
         
-        if critical:
-            body += "🟠 ВАЖНО! (4-7 дней):\n"
-            for exam in critical:
+        # Уведомление за 2 дня
+        if data['exams'][2]:
+            body += "🔴 ИСТЕКАЕТ ЧЕРЕЗ 2 ДНЯ:\n"
+            for exam in data['exams'][2]:
                 body += f"""
-   🟠 {exam['name']}
-      • Осталось дней: {exam['days_left']}
-      • Действует до: {exam['expires_at']}
-      • Рекомендуется продлить в ближайшее время.
+   🔴 {exam['name']}
+      • Истекает через: {exam['days_left']} дней
+      • Действует до: {exam['end_date']}
+      • СРОЧНО ПРОДЛИТЕ ЭКЗАМЕН!
 
 """
         
-        if soon:
-            body += "🟡 ВНИМАНИЕ! (8-30 дней):\n"
-            for exam in soon:
+        # Уведомление за 1 день
+        if data['exams'][1]:
+            body += "🔴 ИСТЕКАЕТ ЗАВТРА! (1 день):\n"
+            for exam in data['exams'][1]:
                 body += f"""
-   🟡 {exam['name']}
-      • Осталось дней: {exam['days_left']}
-      • Действует до: {exam['expires_at']}
+   🔴 {exam['name']}
+      • Истекает через: {exam['days_left']} дней
+      • Действует до: {exam['end_date']}
+      • СРОЧНО ПРОДЛИТЕ ЭКЗАМЕН!
 
 """
         
@@ -349,8 +425,8 @@ def check_and_send_notifications_sync():
 
 📌 Действия:
 • Просроченные экзамены - срочно пересдайте
-• Экзамены с остатком менее 7 дней - срочно продлите
 • Экзамены с остатком 7-30 дней - запланируйте продление
+• Экзамены с остатком 1-3 дня - срочно продлите
 
 ➡️ Для продления экзамена войдите в систему:
    http://localhost:8000
@@ -359,10 +435,11 @@ def check_and_send_notifications_sync():
 Это автоматическое уведомление. Пожалуйста, не отвечайте на это письмо.
 """
         
-        if send_email(user_data['email'], subject, body):
+        if send_email(email, subject, body):
             notifications_sent += 1
+            print(f"✅ Уведомление отправлено на {email}")
     
-    print(f"✅ Отправлено уведомлений: {notifications_sent}")
+    print(f"📊 Отправлено уведомлений: {notifications_sent}")
     return notifications_sent
 
 @app.post("/api/v1/auth/login", response_model=LoginResponse)
@@ -444,9 +521,6 @@ async def send_notifications_manual(current_user=Depends(get_current_user)):
     thread.start()
     
     return {"message": "Уведомления начали отправляться в фоновом режиме"}
-
-
-
 
 @app.get("/api/v1/exams/report/csv")
 async def export_exams_report(current_user=Depends(get_current_user)):
@@ -928,11 +1002,15 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import atexit
 
+# Глобальная переменная для планировщика
+scheduler = None
+
 def start_scheduler():
-    """Запуск планировщика уведомлений - только в 09:00"""
+    """Запуск планировщика уведомлений - работает в фоне независимо от запросов"""
+    global scheduler
     scheduler = BackgroundScheduler()
     
-    # Только один раз в день в 09:00
+    # Ежедневно в 09:00
     scheduler.add_job(
         func=check_and_send_notifications_sync,
         trigger=CronTrigger(hour=9, minute=0),
@@ -942,14 +1020,18 @@ def start_scheduler():
     )
     
     scheduler.start()
-    print("📅 Планировщик уведомлений запущен!")
-    print("   • Отправка ТОЛЬКО в 09:00 (один раз в день)")
+    print("📅 Планировщик уведомлений ЗАПУЩЕН!")
+    print("   • Отправка КАЖДЫЙ ДЕНЬ в 09:00")
+    print("   • Работает в фоне, не зависит от активности пользователей")
     
-    atexit.register(lambda: scheduler.shutdown())
+    # Регистрируем остановку планировщика при завершении приложения
+    atexit.register(lambda: scheduler.shutdown() if scheduler else None)
+    
     return scheduler
 
-# Запускаем планировщик
-scheduler = start_scheduler()
+# Автоматический запуск планировщика при старте приложения
+print("🚀 Инициализация UAISS Web API...")
+start_scheduler()
 
 if __name__ == "__main__":
     import uvicorn
@@ -960,9 +1042,9 @@ if __name__ == "__main__":
     print(" Документация: http://localhost:8000/docs")
     print("=" * 50)
     print("\n📧 Email уведомления:")
-    print("   • Проверка происходит автоматически раз в день")
+    print("   • Планировщик автоматически отправляет уведомления каждый день в 09:00")
+    print("   • Отправка происходит независимо от активности пользователей")
     print("   • Для ручной отправки: POST /api/v1/notifications/send (только админ)")
-    print("   • Настройте SMTP_USER и SMTP_PASSWORD в коде")
     print("\nТестовые учетные записи:")
     print("👤 Сотрудник: user@uaiss.ru / 123456")
     print("👑 Администратор: admin@uaiss.ru / admin123")
