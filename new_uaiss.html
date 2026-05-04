@@ -15,6 +15,7 @@
             --success: #16A34A; --warning: #D97706; --danger: #DC2626;
             --border: #E2E8F0; --sick: #EF4444; --business-trip: #8B5CF6;
             --vacation: #0EA5E9; --working: #10B981; --card-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            --profile-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         body.dark {
             --bg-primary: #0F172A; --bg-surface: #1E293B; --text-primary: #F1F5F9;
@@ -22,20 +23,26 @@
             --success: #22C55E; --warning: #F59E0B; --danger: #EF4444;
             --border: #334155; --sick: #F87171; --business-trip: #A78BFA;
             --vacation: #38BDF8; --working: #34D399; --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            --profile-bg: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
         }
         body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); transition: all 0.3s ease; }
         .app { max-width: 500px; margin: 0 auto; min-height: 100vh; background: var(--bg-primary); position: relative; padding-bottom: 70px; }
         .header { background: var(--bg-surface); padding: 16px 20px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); }
-        .header-content { display: flex; justify-content: space-between; align-items: center; }
+        .header-content { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .logo { font-size: 20px; font-weight: 700; background: linear-gradient(135deg, var(--accent), #818CF8); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .theme-toggle, .logout-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 40px; padding: 8px 16px; cursor: pointer; font-size: 14px; color: var(--text-secondary); transition: all 0.2s; }
-        .theme-toggle { border-radius: 50%; width: 40px; height: 40px; padding: 0; font-size: 20px; }
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 500px; margin: 0 auto; background: var(--bg-surface); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 8px 16px 12px; z-index: 100; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font-size: 12px; color: var(--text-secondary); padding: 8px; }
-        .nav-item.active { color: var(--accent); }
-        .nav-icon { font-size: 24px; }
-        .content { padding: 20px; animation: fadeIn 0.3s ease; }
+        .header-right { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .profile-name-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 40px; padding: 6px 14px; cursor: pointer; font-size: 13px; color: var(--text-primary); transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+        .profile-name-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+        .theme-toggle, .logout-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 40px; padding: 6px 14px; cursor: pointer; font-size: 13px; color: var(--text-secondary); transition: all 0.2s; }
+        .theme-toggle { border-radius: 50%; width: 38px; height: 38px; padding: 0; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 500px; margin: 0 auto; background: var(--bg-surface); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 8px 12px 12px; z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font-size: 11px; color: var(--text-secondary); padding: 6px 8px; border-radius: 12px; transition: all 0.2s; flex: 1; max-width: 80px; }
+        .nav-item.active { color: var(--accent); background: rgba(59, 130, 246, 0.1); }
+        .nav-icon { font-size: 22px; }
+        .content { padding: 16px; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Login styles */
         .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-surface) 100%); }
         .login-card { background: var(--bg-surface); border-radius: 32px; padding: 40px 24px; width: 100%; max-width: 400px; box-shadow: 0 20px 35px -10px rgba(0,0,0,0.1); text-align: center; }
         .login-logo { font-size: 48px; margin-bottom: 16px; }
@@ -49,66 +56,294 @@
         .login-btn { width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-weight: 600; font-size: 16px; cursor: pointer; margin-top: 12px; }
         .error-message { background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 12px; border-radius: 12px; font-size: 14px; margin-top: 16px; text-align: center; }
         .test-creds { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); text-align: center; }
-        .card { background: var(--bg-surface); border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: var(--card-shadow); cursor: pointer; transition: all 0.2s; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .card-title { font-size: 16px; font-weight: 600; }
-        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-        .stat-card { background: var(--bg-surface); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; }
+        
+        /* Card styles */
+        .card { background: var(--bg-surface); border-radius: 20px; padding: 16px; margin-bottom: 16px; box-shadow: var(--card-shadow); transition: all 0.2s; }
+        .card-clickable { cursor: pointer; }
+        .card-clickable:active { transform: scale(0.98); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
+        .card-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        
+        /* Stats styles */
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: var(--bg-surface); border-radius: 16px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .stat-card:active { transform: scale(0.96); }
         .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
         .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-        .exam-card { display: flex; align-items: center; gap: 12px; }
-        .exam-icon { font-size: 32px; width: 48px; height: 48px; background: var(--bg-primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
-        .exam-info { flex: 1; }
+        
+        /* Exam styles */
+        .exam-card { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .exam-icon { font-size: 32px; width: 48px; height: 48px; background: var(--bg-primary); border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .exam-info { flex: 1; min-width: 150px; }
         .exam-name { font-weight: 600; margin-bottom: 4px; }
         .exam-date { font-size: 12px; color: var(--text-secondary); }
-        .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .exam-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; }
         .badge-active { background: rgba(34, 197, 94, 0.1); color: var(--success); }
         .badge-expiring { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
         .badge-expired { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
-        .status-card { display: flex; align-items: center; justify-content: space-between; }
+        
+        /* Status styles */
+        .status-card { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
         .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; background: rgba(16, 185, 129, 0.1); color: var(--working); }
-        .btn { border: none; padding: 12px 20px; border-radius: 12px; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 14px; }
+        
+        /* Button styles */
+        .btn { border: none; padding: 10px 16px; border-radius: 14px; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 13px; transition: all 0.2s; }
         .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:active { transform: scale(0.96); }
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
+        .btn-outline:active { transform: scale(0.96); }
+        
+        /* Exam types grid */
         .exam-types-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-        .exam-type-btn { background: var(--bg-surface); border: 2px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; }
+        .exam-type-btn { background: var(--bg-surface); border: 2px solid var(--border); border-radius: 16px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
         .exam-type-btn.selected { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); }
+        .exam-type-btn:active { transform: scale(0.96); }
+        
+        /* Modal styles */
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; z-index: 200; }
-        .modal-content { background: var(--bg-surface); border-radius: 24px 24px 24px 24px; padding: 24px; max-height: 80vh; overflow-y: auto; width: 100%; animation: slideUp 0.3s ease; }
+        .modal-content { background: var(--bg-surface); border-radius: 28px 28px 0 0; padding: 24px; max-height: 85vh; overflow-y: auto; width: 100%; animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .empty-state { text-align: center; padding: 48px 20px; color: var(--text-secondary); }
-        .toast { position: fixed; bottom: 90px; left: 20px; right: 20px; background: var(--bg-surface); color: var(--text-primary); padding: 12px 16px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 150; animation: slideUp 0.3s ease; text-align: center; }
-        .admin-badge { background: linear-gradient(135deg, #8B5CF6, #6366F1); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; color: white; }
-        .employee-list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        
+        /* Profile card styles */
+        .profile-card {
+            background: var(--profile-bg);
+            border-radius: 24px;
+            padding: 24px;
+            margin-bottom: 20px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .profile-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .profile-avatar {
+            font-size: 56px;
+            margin-bottom: 12px;
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 60px;
+            padding: 12px;
+        }
+        .profile-name-card {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .profile-role-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        .profile-stats {
+            display: flex;
+            gap: 16px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .profile-stat {
+            background: rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 10px 16px;
+            text-align: center;
+            flex: 1;
+            min-width: 80px;
+        }
+        .profile-stat-value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .profile-stat-label {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        
+        /* Profile modal styles - красивые плашки */
+        .profile-modal-card {
+            background: var(--bg-surface);
+            border-radius: 20px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .profile-modal-header {
+            padding: 16px;
+            background: linear-gradient(135deg, var(--accent), #818CF8);
+            color: white;
+        }
+        .profile-modal-header h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .profile-modal-body {
+            padding: 20px;
+        }
+        .profile-field {
+            margin-bottom: 16px;
+        }
+        .profile-field label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .profile-field input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .profile-field input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .profile-field input:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .profile-email-card {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .profile-email-icon {
+            font-size: 32px;
+        }
+        .profile-email-info {
+            flex: 1;
+        }
+        .profile-email-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .profile-email-value {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .profile-password-card {
+            background: rgba(245, 158, 11, 0.1);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .profile-password-icon {
+            font-size: 32px;
+        }
+        .profile-password-info {
+            flex: 1;
+        }
+        .profile-password-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .profile-password-value {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        /* Employee list item */
+        .employee-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .employee-info { flex: 1; min-width: 150px; }
+        .employee-name { font-weight: 600; font-size: 15px; }
+        .employee-period { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+        
+        /* Status stats card */
         .status-stats-card { background: linear-gradient(135deg, var(--bg-surface), var(--bg-primary)); border-radius: 20px; padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); }
         .status-stats-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         .status-stats-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-        .status-stat-item { flex: 1 1 auto; min-width: 70px; text-align: center; padding: 8px 4px; background: var(--bg-surface); border-radius: 12px; cursor: pointer; border: 2px solid transparent; }
-        .status-stat-item.active { border-color: var(--accent); background: rgba(59, 130, 246, 0.05); }
-        .status-stat-emoji { font-size: 20px; margin-bottom: 4px; }
-        .status-stat-count { font-size: 16px; font-weight: 700; }
+        .status-stat-item { flex: 1 1 auto; min-width: 65px; text-align: center; padding: 10px 4px; background: var(--bg-surface); border-radius: 14px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
+        .status-stat-item.active { border-color: var(--accent); background: rgba(59, 130, 246, 0.08); }
+        .status-stat-emoji { font-size: 22px; margin-bottom: 4px; }
+        .status-stat-count { font-size: 18px; font-weight: 700; }
         .status-stat-label { font-size: 9px; color: var(--text-secondary); white-space: nowrap; }
-        .profile-modal .modal-content { max-width: 400px; margin: 0 auto; }
-        .profile-info { text-align: center; margin-bottom: 24px; }
-        .profile-avatar { font-size: 64px; margin-bottom: 16px; }
-        .profile-name { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
-        .profile-email { font-size: 14px; color: var(--text-secondary); }
-        .profile-role { font-size: 12px; padding: 4px 12px; border-radius: 20px; display: inline-block; margin-top: 8px; }
-        .role-admin { background: linear-gradient(135deg, #8B5CF6, #6366F1); color: white; }
-        .role-employee { background: var(--bg-primary); color: var(--text-secondary); border: 1px solid var(--border); }
-        .btn-save { width: 100%; padding: 12px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; }
-        .profile-actions { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; }
-        .btn-logout { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 14px; padding: 8px; }
+        
+        /* Sort buttons */
+        .sort-buttons { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .sort-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 30px; padding: 8px 14px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+        .sort-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        
+        /* Toast */
+        .toast { position: fixed; bottom: 80px; left: 16px; right: 16px; background: var(--bg-surface); color: var(--text-primary); padding: 12px 16px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 150; animation: slideUp 0.3s ease; text-align: center; font-weight: 500; }
+        
+        /* Empty state */
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+        .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+        
+        /* Colors */
         .working-color { color: var(--working); }
         .sick-color { color: var(--sick); }
         .trip-color { color: var(--business-trip); }
         .vacation-color { color: var(--vacation); }
-        .expiring-critical { border-left: 4px solid var(--danger) !important; background: rgba(239, 68, 68, 0.05) !important; }
-        .text-critical { color: var(--danger) !important; font-weight: bold !important; }
-        .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
-        .sort-buttons { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-        .sort-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
-        .sort-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        
+        /* Responsive fixes */
+        @media (max-width: 450px) {
+            .content { padding: 12px; }
+            .card { padding: 14px; }
+            .nav-item { font-size: 10px; padding: 4px 4px; }
+            .nav-icon { font-size: 20px; }
+            .btn { padding: 8px 12px; font-size: 12px; }
+            .exam-card { flex-direction: column; align-items: flex-start; }
+            .exam-actions { align-self: flex-end; }
+            .status-card { flex-direction: column; align-items: flex-start; }
+            .card-header { flex-direction: column; align-items: flex-start; }
+            .sort-buttons { justify-content: center; }
+            .stats-grid { gap: 8px; }
+            .stat-card { padding: 12px; }
+            .stat-value { font-size: 24px; }
+            .employee-list-item { flex-direction: column; align-items: flex-start; }
+            .profile-stats { gap: 8px; }
+            .profile-stat { padding: 8px 12px; }
+        }
+        
+        @media (max-width: 380px) {
+            .header-content { flex-direction: column; text-align: center; }
+            .header-right { justify-content: center; }
+            .sort-buttons { flex-wrap: wrap; }
+            .sort-btn { flex: 1; text-align: center; }
+            .status-stats-grid { gap: 6px; }
+            .status-stat-item { min-width: 55px; }
+            .status-stat-emoji { font-size: 18px; }
+            .status-stat-count { font-size: 16px; }
+        }
     </style>
 </head>
 <body>
@@ -280,13 +515,10 @@
             
             return myStatuses.find(s => {
                 if (!s.is_active) return false;
-                
                 if (s.start_date) {
                     const startParts = s.start_date.split('.');
                     const startDate = new Date(startParts[2], startParts[1] - 1, startParts[0]);
-                    if (startDate > today) {
-                        return false;
-                    }
+                    if (startDate > today) return false;
                 }
                 return true;
             });
@@ -299,7 +531,6 @@
         
         function getSortedExams() {
             const exams = [...myExams];
-            
             switch(examSortType) {
                 case 'date_asc':
                     return exams.sort((a, b) => {
@@ -327,13 +558,12 @@
 
         window.showConfirmModal = (title, message, onConfirm) => {
             deleteCallback = onConfirm;
-            
             const modalHtml = `
                 <div class="modal-overlay" onclick="window.closeConfirmModal()">
-                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 24px;">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
                         <div class="card-header" style="margin-bottom: 16px;">
-                            <div class="card-title">${title}</div>
-                            <button class="btn btn-outline" onclick="window.closeConfirmModal()" style="padding: 4px 8px; border-radius: 40px;">✕</button>
+                            <div class="card-title" style="font-size: 18px;">${title}</div>
+                            <button class="btn btn-outline" onclick="window.closeConfirmModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
                         </div>
                         <div style="text-align: center; margin-bottom: 20px;">
                             <div style="font-size: 48px; margin-bottom: 12px;">🗑️</div>
@@ -341,20 +571,14 @@
                             <div style="font-size: 13px; color: var(--text-secondary);">Это действие нельзя отменить</div>
                         </div>
                         <div style="display: flex; gap: 12px; margin-top: 20px;">
-                            <button class="btn btn-primary" style="flex: 1; background: var(--danger);" onclick="window.confirmDelete()">
-                                🗑️ Удалить
-                            </button>
-                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeConfirmModal()">
-                                Отмена
-                            </button>
+                            <button class="btn btn-primary" style="flex: 1; background: var(--danger);" onclick="window.confirmDelete()">🗑️ Удалить</button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeConfirmModal()">Отмена</button>
                         </div>
                     </div>
                 </div>
             `;
-            
             const existingModal = document.getElementById('confirmModal');
             if (existingModal) existingModal.remove();
-            
             const modalDiv = document.createElement('div');
             modalDiv.id = 'confirmModal';
             modalDiv.innerHTML = modalHtml;
@@ -368,9 +592,7 @@
         };
 
         window.confirmDelete = () => {
-            if (deleteCallback) {
-                deleteCallback();
-            }
+            if (deleteCallback) deleteCallback();
             window.closeConfirmModal();
         };
 
@@ -378,21 +600,17 @@
             editingExamId = examId;
             editingExamName = examName;
             editingExamDate = currentDate;
-            
             let formattedDate = '';
             if (currentDate) {
                 const parts = currentDate.split('.');
-                if (parts.length === 3) {
-                    formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-                }
+                if (parts.length === 3) formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
             }
-            
             const modalHtml = `
                 <div class="modal-overlay" onclick="window.closeEditExamModal()">
-                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 24px;">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
                         <div class="card-header" style="margin-bottom: 16px;">
-                            <div class="card-title">✏️ Редактировать экзамен</div>
-                            <button class="btn btn-outline" onclick="window.closeEditExamModal()" style="padding: 4px 8px; border-radius: 40px;">✕</button>
+                            <div class="card-title" style="font-size: 18px;">✏️ Редактировать экзамен</div>
+                            <button class="btn btn-outline" onclick="window.closeEditExamModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
                         </div>
                         <div class="form-group">
                             <label class="form-label">📚 Тип экзамена</label>
@@ -404,20 +622,14 @@
                             <small style="font-size: 11px; color: var(--text-secondary);">Нельзя выбрать дату из будущего</small>
                         </div>
                         <div style="display: flex; gap: 12px; margin-top: 20px;">
-                            <button class="btn btn-primary" style="flex: 1;" onclick="window.saveEditedExamDate()">
-                                💾 Сохранить
-                            </button>
-                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeEditExamModal()">
-                                Отмена
-                            </button>
+                            <button class="btn btn-primary" style="flex: 1;" onclick="window.saveEditedExamDate()">💾 Сохранить</button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeEditExamModal()">Отмена</button>
                         </div>
                     </div>
                 </div>
             `;
-            
             const existingModal = document.getElementById('editExamModal');
             if (existingModal) existingModal.remove();
-            
             const modalDiv = document.createElement('div');
             modalDiv.id = 'editExamModal';
             modalDiv.innerHTML = modalHtml;
@@ -434,26 +646,12 @@
 
         window.saveEditedExamDate = async () => {
             const dateInput = document.getElementById('editExamDate');
-            
-            if (!dateInput || !dateInput.value) {
-                showToast('❌ Выберите дату');
-                return;
-            }
-            
+            if (!dateInput || !dateInput.value) { showToast('❌ Выберите дату'); return; }
             const newDate = dateInput.value.split('-').reverse().join('.');
-            
             const selectedDate = new Date(dateInput.value);
-            if (selectedDate > new Date()) {
-                showToast('❌ Нельзя выбрать дату из будущего');
-                return;
-            }
-            
+            if (selectedDate > new Date()) { showToast('❌ Нельзя выбрать дату из будущего'); return; }
             try {
-                const response = await apiRequest(`/exams/${editingExamId}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ date: newDate })
-                });
-                
+                const response = await apiRequest(`/exams/${editingExamId}`, { method: 'PUT', body: JSON.stringify({ date: newDate }) });
                 if (response.ok) {
                     showToast('✅ Дата экзамена обновлена');
                     window.closeEditExamModal();
@@ -463,10 +661,7 @@
                     const error = await response.json();
                     showToast(`❌ ${error.detail || 'Ошибка обновления'}`);
                 }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                showToast('❌ Ошибка соединения');
-            }
+            } catch (error) { showToast('❌ Ошибка соединения'); }
         };
 
         window.editStatusDates = (statusId, statusText, startDate, endDate) => {
@@ -477,16 +672,14 @@
             
             const startDateFormatted = startDate ? startDate.split('.').reverse().join('-') : '';
             let endDateFormatted = '';
-            if (endDate && endDate !== '') {
-                endDateFormatted = endDate.split('.').reverse().join('-');
-            }
+            if (endDate && endDate !== '') endDateFormatted = endDate.split('.').reverse().join('-');
             
             const modalHtml = `
                 <div class="modal-overlay" onclick="window.closeEditStatusModal()">
-                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 24px;">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
                         <div class="card-header" style="margin-bottom: 16px;">
-                            <div class="card-title">${title}</div>
-                            <button class="btn btn-outline" onclick="window.closeEditStatusModal()" style="padding: 4px 8px; border-radius: 40px;">✕</button>
+                            <div class="card-title" style="font-size: 18px;">${title}</div>
+                            <button class="btn btn-outline" onclick="window.closeEditStatusModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
                         </div>
                         <div class="form-group">
                             <label class="form-label">📅 Дата начала</label>
@@ -498,20 +691,14 @@
                             ${statusText.includes('Больничный') ? '<small style="font-size: 11px; color: var(--text-secondary);">Для больничного оставьте пустым, если еще открыт</small>' : ''}
                         </div>
                         <div style="display: flex; gap: 12px; margin-top: 20px;">
-                            <button class="btn btn-primary" style="flex: 1;" onclick="window.saveEditedStatusDates(${statusId})">
-                                💾 Сохранить
-                            </button>
-                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeEditStatusModal()">
-                                Отмена
-                            </button>
+                            <button class="btn btn-primary" style="flex: 1;" onclick="window.saveEditedStatusDates(${statusId})">💾 Сохранить</button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeEditStatusModal()">Отмена</button>
                         </div>
                     </div>
                 </div>
             `;
-            
             const existingModal = document.getElementById('editStatusModal');
             if (existingModal) existingModal.remove();
-            
             const modalDiv = document.createElement('div');
             modalDiv.id = 'editStatusModal';
             modalDiv.innerHTML = modalHtml;
@@ -526,32 +713,17 @@
         window.saveEditedStatusDates = async (statusId) => {
             const startDateInput = document.getElementById('editStatusStartDate');
             const endDateInput = document.getElementById('editStatusEndDate');
-            
-            if (!startDateInput || !startDateInput.value) {
-                showToast('❌ Выберите дату начала');
-                return;
-            }
-            
+            if (!startDateInput || !startDateInput.value) { showToast('❌ Выберите дату начала'); return; }
             const startDate = startDateInput.value.split('-').reverse().join('.');
             let endDate = null;
-            
             if (endDateInput && endDateInput.value) {
                 endDate = endDateInput.value.split('-').reverse().join('.');
-                
                 const start = new Date(startDateInput.value);
                 const end = new Date(endDateInput.value);
-                if (end < start) {
-                    showToast('❌ Дата окончания не может быть раньше даты начала');
-                    return;
-                }
+                if (end < start) { showToast('❌ Дата окончания не может быть раньше даты начала'); return; }
             }
-            
             try {
-                const response = await apiRequest(`/status/${statusId}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ start_date: startDate, end_date: endDate })
-                });
-                
+                const response = await apiRequest(`/status/${statusId}`, { method: 'PUT', body: JSON.stringify({ start_date: startDate, end_date: endDate }) });
                 if (response.ok) {
                     showToast('✅ Даты успешно обновлены');
                     window.closeEditStatusModal();
@@ -561,70 +733,39 @@
                     const error = await response.json();
                     showToast(`❌ ${error.detail || 'Ошибка обновления дат'}`);
                 }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                showToast('❌ Ошибка соединения');
-            }
+            } catch (error) { showToast('❌ Ошибка соединения'); }
         };
 
         window.deleteStatusWithConfirm = (statusId) => {
             const status = myStatuses.find(s => s.id === statusId);
             if (!status) return;
-            
-            showConfirmModal(
-                'Удаление статуса',
-                `Вы уверены, что хотите удалить статус?\n\n"${status.status}"\nс ${status.start_date} по ${status.end_date || 'настоящее время'}`,
-                async () => {
-                    try {
-                        const response = await apiRequest(`/status/${statusId}`, { method: 'DELETE' });
-                        if (response.ok) {
-                            showToast('✅ Статус удален');
-                            await loadAllData();
-                            render();
-                        } else {
-                            showToast('❌ Ошибка удаления');
-                            render();
-                        }
-                    } catch (error) {
-                        showToast('❌ Ошибка соединения');
-                    }
-                }
-            );
+            showConfirmModal('Удаление статуса', `Вы уверены, что хотите удалить статус?\n\n"${status.status}"\nс ${status.start_date} по ${status.end_date || 'настоящее время'}`, async () => {
+                try {
+                    const response = await apiRequest(`/status/${statusId}`, { method: 'DELETE' });
+                    if (response.ok) { showToast('✅ Статус удален'); await loadAllData(); render(); } 
+                    else { showToast('❌ Ошибка удаления'); render(); }
+                } catch (error) { showToast('❌ Ошибка соединения'); }
+            });
         };
 
         window.deleteExam = (examId, examName) => {
-            showConfirmModal(
-                'Удаление экзамена',
-                `Вы уверены, что хотите удалить экзамен?\n\n"${examName}"`,
-                async () => {
-                    try {
-                        const response = await apiRequest(`/exams/${examId}`, { method: 'DELETE' });
-                        if (response.ok) {
-                            showToast('✅ Экзамен удален');
-                            await loadAllData();
-                            render();
-                        } else {
-                            const error = await response.json();
-                            showToast(`❌ ${error.detail || 'Ошибка удаления'}`);
-                        }
-                    } catch (error) {
-                        showToast('❌ Ошибка соединения');
-                    }
-                }
-            );
+            showConfirmModal('Удаление экзамена', `Вы уверены, что хотите удалить экзамен?\n\n"${examName}"`, async () => {
+                try {
+                    const response = await apiRequest(`/exams/${examId}`, { method: 'DELETE' });
+                    if (response.ok) { showToast('✅ Экзамен удален'); await loadAllData(); render(); } 
+                    else { const error = await response.json(); showToast(`❌ ${error.detail || 'Ошибка удаления'}`); }
+                } catch (error) { showToast('❌ Ошибка соединения'); }
+            });
         };
-
-        // ============= УПРАВЛЕНИЕ БОЛЬНИЧНЫМ С МОДАЛЬНЫМИ ОКНАМИ =============
 
         window.closeSickLeave = (statusId) => {
             const today = new Date().toISOString().split('T')[0];
-            
             const modalHtml = `
                 <div class="modal-overlay" onclick="window.closeCloseSickModal()">
-                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 24px;">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
                         <div class="card-header" style="margin-bottom: 16px;">
-                            <div class="card-title">🔒 Закрыть больничный</div>
-                            <button class="btn btn-outline" onclick="window.closeCloseSickModal()" style="padding: 4px 8px; border-radius: 40px;">✕</button>
+                            <div class="card-title" style="font-size: 18px;">🔒 Закрыть больничный</div>
+                            <button class="btn btn-outline" onclick="window.closeCloseSickModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
                         </div>
                         <div class="form-group">
                             <label class="form-label">📅 Дата закрытия</label>
@@ -632,64 +773,39 @@
                             <small style="font-size: 11px; color: var(--text-secondary);">Больничный будет закрыт этой датой</small>
                         </div>
                         <div style="display: flex; gap: 12px; margin-top: 20px;">
-                            <button class="btn btn-primary" style="flex: 1;" onclick="window.confirmCloseSickLeave(${statusId})">
-                                ✅ Закрыть
-                            </button>
-                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeCloseSickModal()">
-                                Отмена
-                            </button>
+                            <button class="btn btn-primary" style="flex: 1;" onclick="window.confirmCloseSickLeave(${statusId})">✅ Закрыть</button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeCloseSickModal()">Отмена</button>
                         </div>
                     </div>
                 </div>
             `;
-            
             const existingModal = document.getElementById('closeSickModal');
             if (existingModal) existingModal.remove();
-            
             const modalDiv = document.createElement('div');
             modalDiv.id = 'closeSickModal';
             modalDiv.innerHTML = modalHtml;
             document.body.appendChild(modalDiv);
         };
 
-        window.closeCloseSickModal = () => {
-            const modal = document.getElementById('closeSickModal');
-            if (modal) modal.remove();
-        };
-
+        window.closeCloseSickModal = () => { const modal = document.getElementById('closeSickModal'); if (modal) modal.remove(); };
         window.confirmCloseSickLeave = async (statusId) => {
             const dateInput = document.getElementById('closeSickDate');
             const closeDate = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
             const formattedDate = closeDate.split('-').reverse().join('.');
-            
             try {
-                const response = await apiRequest(`/status/${statusId}/close`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ end_date: formattedDate })
-                });
-                
-                if (response.ok) {
-                    showToast('✅ Больничный закрыт');
-                    window.closeCloseSickModal();
-                    await loadAllData();
-                    render();
-                } else {
-                    const error = await response.json();
-                    showToast(`❌ ${error.detail || 'Ошибка закрытия'}`);
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                showToast('❌ Ошибка соединения');
-            }
+                const response = await apiRequest(`/status/${statusId}/close`, { method: 'PATCH', body: JSON.stringify({ end_date: formattedDate }) });
+                if (response.ok) { showToast('✅ Больничный закрыт'); window.closeCloseSickModal(); await loadAllData(); render(); } 
+                else { const error = await response.json(); showToast(`❌ ${error.detail || 'Ошибка закрытия'}`); }
+            } catch (error) { showToast('❌ Ошибка соединения'); }
         };
 
         window.extendSickLeave = (statusId) => {
             const modalHtml = `
                 <div class="modal-overlay" onclick="window.closeExtendSickModal()">
-                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 24px;">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
                         <div class="card-header" style="margin-bottom: 16px;">
-                            <div class="card-title">📅 Продлить больничный</div>
-                            <button class="btn btn-outline" onclick="window.closeExtendSickModal()" style="padding: 4px 8px; border-radius: 40px;">✕</button>
+                            <div class="card-title" style="font-size: 18px;">📅 Продлить больничный</div>
+                            <button class="btn btn-outline" onclick="window.closeExtendSickModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
                         </div>
                         <div class="form-group">
                             <label class="form-label">📅 Новая дата окончания</label>
@@ -697,58 +813,30 @@
                             <small style="font-size: 11px; color: var(--text-secondary);">Оставьте пустым, если больничный открыт</small>
                         </div>
                         <div style="display: flex; gap: 12px; margin-top: 20px;">
-                            <button class="btn btn-primary" style="flex: 1;" onclick="window.confirmExtendSickLeave(${statusId})">
-                                📅 Продлить
-                            </button>
-                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeExtendSickModal()">
-                                Отмена
-                            </button>
+                            <button class="btn btn-primary" style="flex: 1;" onclick="window.confirmExtendSickLeave(${statusId})">📅 Продлить</button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeExtendSickModal()">Отмена</button>
                         </div>
                     </div>
                 </div>
             `;
-            
             const existingModal = document.getElementById('extendSickModal');
             if (existingModal) existingModal.remove();
-            
             const modalDiv = document.createElement('div');
             modalDiv.id = 'extendSickModal';
             modalDiv.innerHTML = modalHtml;
             document.body.appendChild(modalDiv);
         };
 
-        window.closeExtendSickModal = () => {
-            const modal = document.getElementById('extendSickModal');
-            if (modal) modal.remove();
-        };
-
+        window.closeExtendSickModal = () => { const modal = document.getElementById('extendSickModal'); if (modal) modal.remove(); };
         window.confirmExtendSickLeave = async (statusId) => {
             const dateInput = document.getElementById('extendSickDate');
             let endDateValue = null;
-            
-            if (dateInput && dateInput.value) {
-                endDateValue = dateInput.value.split('-').reverse().join('.');
-            }
-            
+            if (dateInput && dateInput.value) endDateValue = dateInput.value.split('-').reverse().join('.');
             try {
-                const response = await apiRequest(`/status/${statusId}/extend`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ end_date: endDateValue })
-                });
-                
-                if (response.ok) {
-                    showToast('✅ Больничный продлен');
-                    window.closeExtendSickModal();
-                    await loadAllData();
-                    render();
-                } else {
-                    const error = await response.json();
-                    showToast(`❌ ${error.detail || 'Ошибка продления'}`);
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                showToast('❌ Ошибка соединения');
-            }
+                const response = await apiRequest(`/status/${statusId}/extend`, { method: 'PATCH', body: JSON.stringify({ end_date: endDateValue }) });
+                if (response.ok) { showToast('✅ Больничный продлен'); window.closeExtendSickModal(); await loadAllData(); render(); } 
+                else { const error = await response.json(); showToast(`❌ ${error.detail || 'Ошибка продления'}`); }
+            } catch (error) { showToast('❌ Ошибка соединения'); }
         };
 
         function LoginScreen() {
@@ -781,94 +869,92 @@
         }
 
         function HomeView() {
-            if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
-            const expiringCount = myExams.filter(e => e.status === 'Истекает').length;
-            const criticalCount = myExams.filter(e => e.status === 'Истекает' && e.days_left <= 7).length;
-            const activeStatus = getActiveStatus();
-            const activeStatusText = activeStatus ? activeStatus.status : "🟢 На рабочем месте";
-            const upcomingExams = myExams.filter(e => e.status === 'Истекает').slice(0, 3);
-            const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0 };
-            
-            return `
-                <div class="content">
-                    <div class="status-stats-card">
-                        <div class="status-stats-title">📊 Статистика статусов</div>
-                        <div class="status-stats-grid">
-                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('working')">
-                                <div class="status-stat-emoji">🟢</div>
-                                <div class="status-stat-count working-color">${stats.working || 0}</div>
-                                <div class="status-stat-label">Работают</div>
-                            </div>
-                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('sick')">
-                                <div class="status-stat-emoji">🤒</div>
-                                <div class="status-stat-count sick-color">${stats.sick || 0}</div>
-                                <div class="status-stat-label">Больничный</div>
-                            </div>
-                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('trip')">
-                                <div class="status-stat-emoji">✈️</div>
-                                <div class="status-stat-count trip-color">${stats.trip || 0}</div>
-                                <div class="status-stat-label">Командировка</div>
-                            </div>
-                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('vacation')">
-                                <div class="status-stat-emoji">🏖️</div>
-                                <div class="status-stat-count vacation-color">${stats.vacation || 0}</div>
-                                <div class="status-stat-label">Отпуск</div>
-                            </div>
-                        </div>
+    if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
+    const expiringCount = myExams.filter(e => e.status === 'Истекает').length;
+    const criticalCount = myExams.filter(e => e.status === 'Истекает' && e.days_left <= 7).length;
+    const activeStatus = getActiveStatus();
+    const activeStatusText = activeStatus ? activeStatus.status : "🟢 На рабочем месте";
+    const upcomingExams = myExams.filter(e => e.status === 'Истекает').slice(0, 3);
+    const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0 };
+    
+    return `
+        <div class="content">
+            <div class="status-stats-card">
+                <div class="status-stats-title">📊 Статистика статусов</div>
+                <div class="status-stats-grid">
+                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('working')">
+                        <div class="status-stat-emoji">🟢</div>
+                        <div class="status-stat-count working-color">${stats.working || 0}</div>
+                        <div class="status-stat-label">Работают</div>
                     </div>
-                    
-                    <div class="stats-grid">
-                        <div class="stat-card" onclick="window.changeView('exams')">
-                            <div class="stat-value">${myExams.length}</div>
-                            <div class="stat-label">Мои экзамены</div>
-                        </div>
-                        <div class="stat-card" onclick="window.changeView('exams')">
-                            <div class="stat-value" style="color: ${criticalCount > 0 ? 'var(--danger)' : 'var(--warning)'};">${expiringCount}</div>
-                            <div class="stat-label">Истекают скоро</div>
-                        </div>
+                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('sick')">
+                        <div class="status-stat-emoji">🤒</div>
+                        <div class="status-stat-count sick-color">${stats.sick || 0}</div>
+                        <div class="status-stat-label">Больничный</div>
                     </div>
-                    
-                    <div class="card card-clickable" onclick="window.changeView('exams')">
-                        <div class="card-header">
-                            <div class="card-title">📋 Мои ближайшие экзамены</div>
-                            <span style="font-size: 12px;">→</span>
-                        </div>
-                        ${upcomingExams.length > 0 ? upcomingExams.map(exam => {
-                            const isCritical = exam.days_left <= 7;
-                            const cardStyle = isCritical ? 'border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.05);' : '';
-                            const dateColor = isCritical ? 'style="color: var(--danger); font-weight: bold;"' : '';
-                            return `
-                                <div class="exam-card" style="margin-bottom: 12px; ${cardStyle}">
-                                    <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
-                                    <div class="exam-info">
-                                        <div class="exam-name">${exam.type}</div>
-                                        <div class="exam-date" ${dateColor}>Истекает: ${exam.expires_at} • ${exam.days_left} дней</div>
-                                    </div>
-                                    <span class="badge ${isCritical ? 'badge-expired' : 'badge-expiring'}">${isCritical ? '🔴 КРИТИЧЕСКИ!' : '⚠️ Истекает'}</span>
-                                </div>
-                            `;
-                        }).join('') : '<div class="empty-state"><p>✅ Нет истекающих экзаменов</p></div>'}
+                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('trip')">
+                        <div class="status-stat-emoji">✈️</div>
+                        <div class="status-stat-count trip-color">${stats.trip || 0}</div>
+                        <div class="status-stat-label">Командировка</div>
                     </div>
-                    
-                    <div class="card">
-                        <div class="card-header"><div class="card-title">👤 Мой текущий статус</div></div>
-                        <div class="status-card">
-                            <span class="status-badge status-working">${activeStatusText}</span>
-                            <button class="btn btn-outline" onclick="window.changeView('status')">Изменить</button>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; margin-top: 16px;">
-                        <button class="btn btn-primary" style="flex: 1;" onclick="window.changeView('add-exam')">+ Отметить экзамен</button>
-                        <button class="btn btn-outline" style="flex: 1;" onclick="window.changeView('status')">Изменить статус</button>
+                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('vacation')">
+                        <div class="status-stat-emoji">🏖️</div>
+                        <div class="status-stat-count vacation-color">${stats.vacation || 0}</div>
+                        <div class="status-stat-label">Отпуск</div>
                     </div>
                 </div>
-            `;
-        }
-
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card" onclick="window.changeView('exams')">
+                    <div class="stat-value">${myExams.length}</div>
+                    <div class="stat-label">Мои экзамены</div>
+                </div>
+                <div class="stat-card" onclick="window.changeView('exams')">
+                    <div class="stat-value" style="color: ${criticalCount > 0 ? 'var(--danger)' : 'var(--warning)'};">${expiringCount}</div>
+                    <div class="stat-label">Истекают скоро</div>
+                </div>
+            </div>
+            
+            <div class="card card-clickable" onclick="window.changeView('exams')">
+                <div class="card-header">
+                    <div class="card-title">📋 Мои ближайшие экзамены</div>
+                    <span style="font-size: 12px;">→</span>
+                </div>
+                ${upcomingExams.length > 0 ? upcomingExams.map(exam => {
+                    const isCritical = exam.days_left <= 7;
+                    const cardStyle = isCritical ? 'border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.05);' : '';
+                    const dateColor = isCritical ? 'style="color: var(--danger); font-weight: bold;"' : '';
+                    return `
+                        <div class="exam-card" style="margin-bottom: 12px; ${cardStyle}">
+                            <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
+                            <div class="exam-info">
+                                <div class="exam-name">${exam.type}</div>
+                                <div class="exam-date" ${dateColor}>Истекает: ${exam.expires_at} • ${exam.days_left} дней</div>
+                            </div>
+                            <span class="badge ${isCritical ? 'badge-expired' : 'badge-expiring'}">${isCritical ? '🔴 КРИТИЧЕСКИ!' : '⚠️ Истекает'}</span>
+                        </div>
+                    `;
+                }).join('') : '<div class="empty-state"><p>✅ Нет истекающих экзаменов</p></div>'}
+            </div>
+            
+            <div class="card">
+                <div class="card-header"><div class="card-title">👤 Мой текущий статус</div></div>
+                <div class="status-card">
+                    <span class="status-badge status-working">${activeStatusText}</span>
+                    <button class="btn btn-outline" onclick="window.changeView('status')">Изменить</button>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="window.changeView('add-exam')">+ Отметить экзамен</button>
+                <button class="btn btn-outline" style="flex: 1;" onclick="window.changeView('status')">Изменить статус</button>
+            </div>
+        </div>
+    `;
+}
         function MyExamsView() {
             if (isLoading) return `<div class="loading">⏳ Загрузка экзаменов...</div>`;
-            
             const sortedExams = getSortedExams();
             
             return `
@@ -879,8 +965,8 @@
                     </div>
                     
                     <div class="sort-buttons">
-                        <button class="sort-btn ${examSortType === 'date_asc' ? 'active' : ''}" onclick="window.setExamSort('date_asc')">📅 Сначала старые</button>
-                        <button class="sort-btn ${examSortType === 'date_desc' ? 'active' : ''}" onclick="window.setExamSort('date_desc')">📅 Сначала новые</button>
+                        <button class="sort-btn ${examSortType === 'date_asc' ? 'active' : ''}" onclick="window.setExamSort('date_asc')">📅 Старые сначала</button>
+                        <button class="sort-btn ${examSortType === 'date_desc' ? 'active' : ''}" onclick="window.setExamSort('date_desc')">📅 Новые сначала</button>
                         <button class="sort-btn ${examSortType === 'days_left_asc' ? 'active' : ''}" onclick="window.setExamSort('days_left_asc')">⚠️ Истекают</button>
                     </div>
                     
@@ -918,10 +1004,10 @@
                                             Осталось: ${daysLeft} дней
                                         </div>
                                     </div>
-                                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                                        <span class="badge ${badgeClass}">${badgeText}</span>
+                                    <div class="exam-actions">
+                                        <span class="badge ${badgeClass}" style="margin-bottom: 8px;">${badgeText}</span>
                                         <div style="display: flex; gap: 8px;">
-                                            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="window.openEditExamModal(${exam.id}, '${exam.type}', '${exam.date}')">✏️ Изменить дату</button>
+                                            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="window.openEditExamModal(${exam.id}, '${exam.type}', '${exam.date}')">✏️ Изменить</button>
                                             <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px; color: var(--danger);" onclick="window.deleteExam(${exam.id}, '${exam.type}')">🗑️ Удалить</button>
                                         </div>
                                     </div>
@@ -944,14 +1030,10 @@
         }
 
         function StatusView() {
-            if (isLoading) {
-                return `<div class="loading">⏳ Загрузка статусов...</div>`;
-            }
-            
+            if (isLoading) return `<div class="loading">⏳ Загрузка статусов...</div>`;
             const activeStatus = getActiveStatus();
             const isSickActive = activeStatus && activeStatus.status.includes('Больничный');
             const hasActiveStatus = activeStatus !== undefined;
-            
             const sortedStatuses = [...myStatuses].sort((a, b) => {
                 const dateA = a.start_date.split('.').reverse().join('-');
                 const dateB = b.start_date.split('.').reverse().join('-');
@@ -983,9 +1065,9 @@
                         <div class="card-header">
                             <div class="card-title">🏥 Управление больничным</div>
                         </div>
-                        <div style="display: flex; gap: 12px;">
-                            <button class="btn btn-primary" style="flex: 1;" onclick="window.closeSickLeave(${activeStatus.id})">🔒 Закрыть больничный</button>
-                            <button class="btn btn-outline" style="flex: 1;" onclick="window.extendSickLeave(${activeStatus.id})">📅 Продлить больничный</button>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" style="flex: 1;" onclick="window.closeSickLeave(${activeStatus.id})">🔒 Закрыть</button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.extendSickLeave(${activeStatus.id})">📅 Продлить</button>
                         </div>
                     </div>
                     ` : ''}
@@ -994,14 +1076,14 @@
                         <div class="card-title">📋 История статусов</div>
                     </div>
                     ${sortedStatuses.length > 0 ? sortedStatuses.map(status => `
-                        <div class="card" style="position: relative;">
+                        <div class="card">
                             <div class="status-card">
                                 <div style="flex: 1;">
                                     <div style="font-weight: 600;">${status.status}</div>
                                     <div style="font-size: 12px; color: var(--text-secondary);">${status.start_date} — ${status.end_date || 'По сей день'}</div>
                                 </div>
-                                <div style="display: flex; gap: 8px;">
-                                    <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px;" onclick="window.editStatusDates(${status.id}, '${status.status}', '${status.start_date}', '${status.end_date || ''}')">✏️ Изменить даты</button>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px;" onclick="window.editStatusDates(${status.id}, '${status.status}', '${status.start_date}', '${status.end_date || ''}')">✏️ Изменить</button>
                                     <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px; color: var(--danger);" onclick="window.deleteStatusWithConfirm(${status.id})">🗑️ Удалить</button>
                                 </div>
                             </div>
@@ -1020,9 +1102,9 @@
             
             return `
                 <div class="content">
-                    <div class="card-header" style="margin-bottom: 16px;">
+                    <div class="card-header" style="margin-bottom: 16px; flex-wrap: wrap;">
                         <div class="card-title">📊 Управление персоналом</div>
-                        ${currentUser.role === 'admin' ? '<span class="admin-badge">👑 Полный доступ</span>' : '<span class="admin-badge" style="background:var(--text-secondary);">👁️ Только просмотр</span>'}
+                        ${currentUser.role === 'admin' ? '<span class="admin-badge" style="background: linear-gradient(135deg, var(--accent), #818CF8); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; color: white;">👑 Администратор</span>' : '<span class="admin-badge" style="background:var(--text-secondary); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; color: white;">👁️ Только просмотр</span>'}
                     </div>
                     
                     <div class="card">
@@ -1080,24 +1162,24 @@
                             }
                             
                             if (emp.period && emp.period !== '') {
-                                periodHtml = `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;">📅 ${emp.period}</div>`;
+                                periodHtml = `<div class="employee-period">📅 ${emp.period}</div>`;
                             } else if (emp.start_date && emp.start_date !== '') {
                                 if (emp.end_date && emp.end_date !== '') {
-                                    periodHtml = `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;">📅 ${emp.start_date} — ${emp.end_date}</div>`;
+                                    periodHtml = `<div class="employee-period">📅 ${emp.start_date} — ${emp.end_date}</div>`;
                                 } else if (emp.start_date) {
-                                    periodHtml = `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;">📅 с ${emp.start_date}</div>`;
+                                    periodHtml = `<div class="employee-period">📅 с ${emp.start_date}</div>`;
                                 }
                             }
                             
                             return `
-                                <div class="employee-list-item" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                                        <div style="font-weight: 600;">${emp.name}</div>
-                                        <div class="status-badge" style="background: ${bgColor}; color: ${statusColor}; padding: 4px 12px; border-radius: 20px; font-size: 12px;">
-                                            ${statusText}
-                                        </div>
+                                <div class="employee-list-item">
+                                    <div class="employee-info">
+                                        <div class="employee-name">${emp.name}</div>
+                                        ${periodHtml}
                                     </div>
-                                    ${periodHtml}
+                                    <div class="status-badge" style="background: ${bgColor}; color: ${statusColor}; padding: 6px 12px; border-radius: 20px; font-size: 12px; white-space: nowrap;">
+                                        ${statusText}
+                                    </div>
                                 </div>
                             `;
                         }).join('')}
@@ -1111,10 +1193,10 @@
             if (modalType === 'sick') {
                 return `
                     <div class="modal-overlay" onclick="window.closeModal()">
-                        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 24px;">
+                        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
                             <div class="card-header" style="margin-bottom: 16px;">
-                                <div class="card-title">🤒 Открыть больничный</div>
-                                <button class="btn btn-outline" onclick="window.closeModal()" style="padding: 4px 8px; border-radius: 40px;">✕</button>
+                                <div class="card-title" style="font-size: 18px;">🤒 Открыть больничный</div>
+                                <button class="btn btn-outline" onclick="window.closeModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">📅 Дата начала</label>
@@ -1138,10 +1220,10 @@
                 const statusText = modalType === 'trip' ? '✈️ Командировка' : '🏖️ Отпуск';
                 return `
                     <div class="modal-overlay" onclick="window.closeModal()">
-                        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 24px;">
+                        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
                             <div class="card-header" style="margin-bottom: 16px;">
-                                <div class="card-title">${title}</div>
-                                <button class="btn btn-outline" onclick="window.closeModal()" style="padding: 4px 8px; border-radius: 40px;">✕</button>
+                                <div class="card-title" style="font-size: 18px;">${title}</div>
+                                <button class="btn btn-outline" onclick="window.closeModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">📅 Дата начала</label>
@@ -1160,21 +1242,67 @@
                 `;
             }
             if (modalType === 'profile') {
-                return `
-                    <div class="modal-overlay profile-modal" onclick="window.closeProfileModal()">
-                        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 24px;">
-                            <div class="card-header"><div class="card-title">👤 Личный кабинет</div><button class="btn btn-outline" onclick="window.closeProfileModal()" style="padding: 4px 8px; border-radius: 40px;">✕</button></div>
-                            <div class="profile-info"><div class="profile-avatar">${currentUser?.role === 'admin' ? '👑' : '👤'}</div><div class="profile-name">${currentUser?.name || ''}</div><div class="profile-email">${currentUser?.email || 'Не указана'}</div><div class="profile-role ${currentUser?.role === 'admin' ? 'role-admin' : 'role-employee'}">${currentUser?.role === 'admin' ? 'Администратор' : 'Сотрудник'}</div></div>
-                            <div class="form-group"><label>📧 Электронная почта</label><input type="email" id="profileEmail" value="${currentUser?.email || ''}" placeholder="Введите вашу почту"></div>
-                            <div class="form-group"><label>🔒 Старый пароль</label><input type="password" id="oldPassword" placeholder="Введите старый пароль"></div>
-                            <div class="form-group"><label>🔑 Новый пароль</label><input type="password" id="newPassword" placeholder="Введите новый пароль"></div>
-                            <div class="form-group"><label>✅ Подтверждение пароля</label><input type="password" id="confirmPassword" placeholder="Подтвердите новый пароль"></div>
-                            <button class="btn-save" onclick="window.saveProfileChanges()">💾 Сохранить изменения</button>
-                            <div class="profile-actions"><button class="btn-logout" onclick="window.logout(); window.closeProfileModal();">🚪 Выйти из системы</button></div>
+    return `
+        <div class="modal-overlay profile-modal" onclick="window.closeProfileModal()">
+            <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
+                <div class="card-header" style="margin-bottom: 20px;">
+                    <div class="card-title" style="font-size: 20px;">👤 Личный кабинет</div>
+                    <button class="btn btn-outline" onclick="window.closeProfileModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
+                </div>
+                
+                <!-- Информация о пользователе -->
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div style="font-size: 64px; background: linear-gradient(135deg, var(--accent), #818CF8); border-radius: 60px; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">${currentUser?.role === 'admin' ? '👑' : '👤'}</div>
+                    <div style="font-size: 20px; font-weight: 600;">${currentUser?.name || ''}</div>
+                    <div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">${currentUser?.email || 'Email не указан'}</div>
+                    <div style="display: inline-block; margin-top: 8px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 500; background: ${currentUser?.role === 'admin' ? 'linear-gradient(135deg, #8B5CF6, #6366F1)' : 'var(--bg-primary)'}; color: ${currentUser?.role === 'admin' ? 'white' : 'var(--text-secondary)'}; border: 1px solid var(--border);">${currentUser?.role === 'admin' ? 'Администратор' : 'Сотрудник'}</div>
+                </div>
+                
+                <!-- Изменение email -->
+                <div class="profile-modal-card">
+                    <div class="profile-modal-header" style="background: linear-gradient(135deg, var(--accent), #818CF8);">
+                        <h4>✉️ Изменить email</h4>
+                    </div>
+                    <div class="profile-modal-body">
+                        <div class="profile-field">
+                            <label>Новый email</label>
+                            <input type="email" id="profileEmail" placeholder="Введите ваш email" value="${currentUser?.email || ''}">
                         </div>
                     </div>
-                `;
-            }
+                </div>
+                
+                <!-- Смена пароля -->
+                <div class="profile-modal-card">
+                    <div class="profile-modal-header" style="background: linear-gradient(135deg, #F59E0B, #D97706);">
+                        <h4>🔒 Смена пароля</h4>
+                    </div>
+                    <div class="profile-modal-body">
+                        <div class="profile-field">
+                            <label>Старый пароль</label>
+                            <input type="password" id="oldPassword" placeholder="Введите старый пароль">
+                        </div>
+                        <div class="profile-field">
+                            <label>Новый пароль</label>
+                            <input type="password" id="newPassword" placeholder="Введите новый пароль">
+                        </div>
+                        <div class="profile-field">
+                            <label>Подтверждение пароля</label>
+                            <input type="password" id="confirmPassword" placeholder="Подтвердите новый пароль">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Кнопка сохранения -->
+                <button class="btn-save" style="width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; margin-bottom: 16px;" onclick="window.saveProfileChanges()">💾 Сохранить изменения</button>
+                
+                <!-- Выход -->
+                <div class="profile-actions" style="text-align: center; padding-top: 16px; border-top: 1px solid var(--border);">
+                    <button class="btn-logout" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 14px; padding: 8px;" onclick="window.logout(); window.closeProfileModal();">🚪 Выйти из системы</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
             return '';
         };
 
@@ -1192,35 +1320,23 @@
         
         window.openStatusModal = (type) => { 
             const activeStatus = getActiveStatus();
-            
             if (activeStatus && !activeStatus.status.includes(type === 'sick' ? 'Больничный' : (type === 'trip' ? 'Командировка' : 'Отпуск'))) {
                 showToast(`❌ Нельзя установить ${type === 'sick' ? 'больничный' : type === 'trip' ? 'командировку' : 'отпуск'}, пока активен другой статус. Сначала закройте текущий статус.`);
                 return;
             }
-            
-            modalType = type; 
-            render(); 
+            modalType = type; render(); 
         };
         
         window.addStatusWithDates = async (statusText) => {
             const startDate = document.getElementById('startDate')?.value;
             const endDate = document.getElementById('endDate')?.value;
-            
-            if (!startDate) {
-                showToast("❌ Выберите дату начала");
-                return;
-            }
-            
+            if (!startDate) { showToast("❌ Выберите дату начала"); return; }
             const formattedStartDate = startDate.split('-').reverse().join('.');
             let formattedEndDate = null;
             if (endDate) {
                 formattedEndDate = endDate.split('-').reverse().join('.');
-                if (new Date(endDate) < new Date(startDate)) {
-                    showToast("❌ Дата окончания не может быть раньше даты начала");
-                    return;
-                }
+                if (new Date(endDate) < new Date(startDate)) { showToast("❌ Дата окончания не может быть раньше даты начала"); return; }
             }
-            
             await addStatus(statusText, formattedStartDate, formattedEndDate);
             window.closeModal();
         };
@@ -1228,22 +1344,13 @@
         window.saveSickLeave = async () => {
             const startDateInput = document.getElementById('sickStartDate');
             const endDateInput = document.getElementById('sickEndDate');
-            
-            if (!startDateInput || !startDateInput.value) {
-                showToast('❌ Выберите дату начала');
-                return;
-            }
-            
+            if (!startDateInput || !startDateInput.value) { showToast('❌ Выберите дату начала'); return; }
             const startDate = startDateInput.value.split('-').reverse().join('.');
             let endDate = null;
             if (endDateInput && endDateInput.value) {
                 endDate = endDateInput.value.split('-').reverse().join('.');
-                if (new Date(endDateInput.value) < new Date(startDateInput.value)) {
-                    showToast('❌ Дата окончания не может быть раньше даты начала');
-                    return;
-                }
+                if (new Date(endDateInput.value) < new Date(startDateInput.value)) { showToast('❌ Дата окончания не может быть раньше даты начала'); return; }
             }
-            
             await addStatus("🤒 Больничный", startDate, endDate);
             window.closeModal();
         };
@@ -1260,7 +1367,6 @@
             const oldPasswordInput = document.getElementById('oldPassword');
             const newPasswordInput = document.getElementById('newPassword');
             const confirmPasswordInput = document.getElementById('confirmPassword');
-            
             const newEmail = emailInput?.value || '';
             const oldPassword = oldPasswordInput?.value || '';
             const newPwd = newPasswordInput?.value || '';
@@ -1290,10 +1396,7 @@
         };
 
         async function render() {
-            if (!isAuthenticated || !authToken) { 
-                document.getElementById('root').innerHTML = LoginScreen(); 
-                return; 
-            }
+            if (!isAuthenticated || !authToken) { document.getElementById('root').innerHTML = LoginScreen(); return; }
             let mainContent = '';
             switch(currentView) {
                 case 'home': mainContent = HomeView(); break;
@@ -1304,7 +1407,7 @@
                 default: mainContent = HomeView();
             }
             const navItems = [{ id: 'home', icon: '🏠', label: 'Главная' }, { id: 'exams', icon: '📋', label: 'Экзамены' }, { id: 'status', icon: '👤', label: 'Статус' }, { id: 'management', icon: '📊', label: 'Управление' }];
-            const html = `<div class="app"><div class="header"><div class="header-content"><div class="logo">UAISS Web</div><div style="display:flex; gap:12px; align-items:center;"><span style="font-size:14px; cursor:pointer; text-decoration:underline dotted;" onclick="window.openProfileModal()" title="Нажмите для открытия профиля">${currentUser?.name || ''} ${currentUser?.role === 'admin' ? '👑' : ''}</span><button class="logout-btn" onclick="window.logout()">Выйти</button><button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}</div>`;
+            const html = `<div class="app"><div class="header"><div class="header-content"><div class="logo">UAISS Web</div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${currentUser?.name?.split(' ')[0] || ''}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="logout-btn" onclick="window.logout()">Выйти</button><button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}</div>`;
             document.getElementById('root').innerHTML = html;
         }
         
@@ -1312,15 +1415,7 @@
             fetch(`${API_BASE}/auth/me`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(response => {
                 if (response.ok) return response.json();
                 else throw new Error('Токен недействителен');
-            }).then(user => { 
-                currentUser = { user_id: user.user_id, name: user.full_name, role: user.role, email: user.email }; 
-                isAuthenticated = true; 
-                loadAllData(); 
-            }).catch(() => { 
-                authToken = null; 
-                localStorage.removeItem('authToken'); 
-                render(); 
-            });
+            }).then(user => { currentUser = { user_id: user.user_id, name: user.full_name, role: user.role, email: user.email }; isAuthenticated = true; loadAllData(); }).catch(() => { authToken = null; localStorage.removeItem('authToken'); render(); });
         }
         setDarkMode(isDarkMode);
         render();
