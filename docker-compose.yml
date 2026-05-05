@@ -6,6 +6,7 @@ services:
       - "8000:8000"
     volumes:
       - ./exams.db:/app/exams.db
+      - ./config.json:/app/config.json
     restart: unless-stopped
     network_mode: bridge
     dns:

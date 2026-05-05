@@ -1,0 +1,32 @@
+{
+    "smtp": {
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "user": "uaiss.gpn@gmail.com",
+        "password": "ywtpwwulycpalogd",
+        "use_tls": true
+    },
+    "notifications": {
+        "enabled": true,
+        "send_time_hour": 9,
+        "send_time_minute": 0,
+        "notify_days": [30, 7, 3, 2, 1],
+        "notify_expired": true
+    },
+    "server": {
+        "host": "0.0.0.0",
+        "port": 8000,
+        "reload": false
+    },
+    "database": {
+        "path": "exams.db"
+    },
+    "auth": {
+        "token_expire_hours": 8,
+        "jwt_secret_key": "auto_generated"
+    },
+    "app": {
+        "name": "UAISS Web API",
+        "version": "1.0.0"
+    }
+}

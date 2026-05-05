@@ -5,7 +5,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from calendar import monthrange
 import hashlib
 import jwt
 import secrets
@@ -16,10 +17,64 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from threading import Thread
+import json
 
-app = FastAPI(title="UAISS Web API", version="1.0.0")
+# Загрузка конфигурации
+def load_config():
+    """Загрузка конфигурации из файла config.json"""
+    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+    default_config = {
+        "smtp": {
+            "host": "smtp.gmail.com",
+            "port": 587,
+            "user": "uaiss.gpn@gmail.com",
+            "password": "ywtpwwulycpalogd",
+            "use_tls": True
+        },
+        "notifications": {
+            "enabled": True,
+            "send_time_hour": 9,
+            "send_time_minute": 0,
+            "notify_days": [30, 7, 3, 2, 1],
+            "notify_expired": True
+        },
+        "server": {
+            "host": "0.0.0.0",
+            "port": 8000,
+            "reload": False
+        },
+        "database": {
+            "path": "exams.db"
+        },
+        "auth": {
+            "token_expire_hours": 8,
+            "jwt_secret_key": secrets.token_hex(32)
+        },
+        "app": {
+            "name": "UAISS Web API",
+            "version": "1.0.0"
+        }
+    }
+    
+    if os.path.exists(config_path):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+            for key in default_config:
+                if key not in config:
+                    config[key] = default_config[key]
+            return config
+    else:
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(default_config, f, ensure_ascii=False, indent=4)
+        print(f"✅ Создан файл конфигурации: {config_path}")
+        return default_config
 
-SECRET_KEY = secrets.token_hex(32)
+# Загружаем конфигурацию
+CONFIG = load_config()
+
+app = FastAPI(title=CONFIG['app']['name'], version=CONFIG['app']['version'])
+
+SECRET_KEY = CONFIG['auth'].get('jwt_secret_key', secrets.token_hex(32))
 ALGORITHM = "HS256"
 
 app.add_middleware(
@@ -32,11 +87,15 @@ app.add_middleware(
 
 security = HTTPBearer()
 
+SMTP_HOST = CONFIG['smtp']['host']
+SMTP_PORT = CONFIG['smtp']['port']
+SMTP_USER = CONFIG['smtp']['user']
+SMTP_PASSWORD = CONFIG['smtp']['password']
+SMTP_USE_TLS = CONFIG['smtp'].get('use_tls', True)
 
-SMTP_HOST = "smtp.gmail.com"        # Адрес SMTP сервера
-SMTP_PORT = 587                      # Порт (587 для STARTTLS, 465 для SSL)
-SMTP_USER = "uaiss.gpn@gmail.com"   
-SMTP_PASSWORD = "ywtpwwulycpalogd"  
+NOTIFICATIONS_ENABLED = CONFIG['notifications']['enabled']
+NOTIFY_DAYS = CONFIG['notifications']['notify_days']
+NOTIFY_EXPIRED = CONFIG['notifications']['notify_expired']
 
 class LoginRequest(BaseModel):
     login: str
@@ -66,11 +125,9 @@ class PasswordChange(BaseModel):
 class EmailUpdate(BaseModel):
     email: str
 
-# Найдите функцию check_and_fix_database() и замените добавление тестовых пользователей:
-
 def check_and_fix_database():
     print("\n🔍 Проверка структуры базы данных...")
-    conn = sqlite3.connect('exams.db')
+    conn = sqlite3.connect(CONFIG['database']['path'])
     cursor = conn.cursor()
     
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
@@ -95,55 +152,45 @@ def check_and_fix_database():
         cursor.execute("ALTER TABLE users ADD COLUMN email TEXT")
         print("✅ Колонка email добавлена")
     
+    cursor.execute("PRAGMA table_info(exams)")
+    exam_columns = [col[1] for col in cursor.fetchall()]
+    if 'last_notification_day' not in exam_columns:
+        cursor.execute("ALTER TABLE exams ADD COLUMN last_notification_day INTEGER DEFAULT 0")
+        print("✅ Колонка last_notification_day добавлена")
+    
     def hash_password(pwd):
         return hashlib.sha256(pwd.encode()).hexdigest()
     
-    # ИЗМЕНЕНО: логины теперь без @uaiss.ru
-    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'smirnov'")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'коваленко'")
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO users (full_name, login, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
-                       ("Алексей Смирнов", "smirnov", hash_password("123456"), "employee", "user@example.com"))
-        print("✅ Добавлен: smirnov / 123456 (Алексей Смирнов)")
+                       ("Коваленко Александр Викторович", "коваленко", hash_password("123456"), "employee", "kovalenko@example.com"))
+        print("✅ Добавлен: коваленко / 123456")
     
-    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'morozova'")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'морозова'")
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO users (full_name, login, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
-                       ("Екатерина Морозова", "morozova", hash_password("admin123"), "admin", "admin@example.com"))
-        print("✅ Добавлен: morozova / admin123 (Екатерина Морозова - Администратор)")
+                       ("Екатерина Морозова", "морозова", hash_password("admin123"), "admin", "morozova@example.com"))
+        print("✅ Добавлен: морозова / admin123")
     
-    # Обновление существующих пользователей (убираем @uaiss.ru из логинов)
-    cursor.execute("SELECT user_id, login FROM users WHERE login LIKE '%@uaiss.ru'")
-    users_with_email_login = cursor.fetchall()
-    for user in users_with_email_login:
-        # Извлекаем фамилию из full_name или логина
-        cursor.execute("SELECT full_name FROM users WHERE user_id = ?", (user['user_id'],))
-        user_data = cursor.fetchone()
-        if user_data:
-            # Берем фамилию из полного имени
-            name_parts = user_data['full_name'].split()
-            if len(name_parts) >= 1:
-                # Транслитерация или直接用 фамилия
-                surname = name_parts[-1].lower()  # Берем последнюю часть как фамилию
-                # Для кириллицы можно оставить как есть
-                new_login = surname
-                
-                # Проверяем, что такой логин еще не существует
-                cursor.execute("SELECT COUNT(*) FROM users WHERE login = ? AND user_id != ?", (new_login, user['user_id']))
-                if cursor.fetchone()[0] == 0:
-                    cursor.execute("UPDATE users SET login = ? WHERE user_id = ?", (new_login, user['user_id']))
-                    print(f"✅ Логин обновлен: {user['login']} -> {new_login}")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'смирнов'")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO users (full_name, login, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
+                       ("Алексей Смирнов", "смирнов", hash_password("123456"), "employee", "smirnov@example.com"))
+        print("✅ Добавлен: смирнов / 123456")
     
     conn.commit()
     conn.close()
     print("\n✅ База данных готова к работе!")
     print("\n🔑 Тестовые учетные записи:")
-    print("   Сотрудник:   login: smirnov   / password: 123456")
-    print("   Администратор: login: morozova / password: admin123")
+    print("   Сотрудник:   логин: коваленко / пароль: 123456")
+    print("   Сотрудник:   логин: смирнов / пароль: 123456")
+    print("   Администратор: логин: морозова / пароль: admin123")
     print()
     return True
 
 def get_db():
-    conn = sqlite3.connect('exams.db')
+    conn = sqlite3.connect(CONFIG['database']['path'])
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -154,7 +201,8 @@ def verify_password(plain: str, hashed: str) -> bool:
     return hash_password(plain) == hashed
 
 def create_token(user_id: int, role: str) -> str:
-    payload = {"sub": str(user_id), "role": role, "exp": datetime.utcnow() + timedelta(hours=8)}
+    expire_hours = CONFIG['auth'].get('token_expire_hours', 8)
+    payload = {"sub": str(user_id), "role": role, "exp": datetime.utcnow() + timedelta(hours=expire_hours)}
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 def verify_token(token: str) -> dict:
@@ -174,12 +222,19 @@ def parse_date(date_str: str) -> datetime:
 def format_date(date: datetime) -> str:
     return date.strftime('%d.%m.%Y')
 
-def is_status_active(end_date_str: Optional[str]) -> bool:
-    if end_date_str is None or end_date_str == '':
-        return True
+def is_status_active(start_date_str: str, end_date_str: Optional[str]) -> bool:
     try:
+        today = datetime.now()
+        start_date = datetime.strptime(start_date_str, '%d.%m.%Y')
+        
+        if start_date > today:
+            return False
+        
+        if end_date_str is None or end_date_str == '':
+            return True
+        
         end_date = datetime.strptime(end_date_str, '%d.%m.%Y')
-        return end_date >= datetime.now()
+        return end_date >= today
     except:
         return False
 
@@ -225,9 +280,11 @@ def check_status_overlap(user_id: int, start_date: str, end_date: Optional[str] 
     finally:
         conn.close()
 
-# ============= ФУНКЦИИ EMAIL УВЕДОМЛЕНИЙ =============
 def send_email(to_email: str, subject: str, body: str):
-    """Отправка email (синхронная версия)"""
+    if not SMTP_USER or not SMTP_PASSWORD:
+        print(f"⚠️ SMTP не настроен. Письмо на {to_email} не отправлено.")
+        return False
+    
     try:
         msg = MIMEMultipart()
         msg['From'] = SMTP_USER
@@ -239,7 +296,8 @@ def send_email(to_email: str, subject: str, body: str):
             server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
         else:
             server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-            server.starttls()
+            if SMTP_USE_TLS:
+                server.starttls()
         
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.send_message(msg)
@@ -251,20 +309,24 @@ def send_email(to_email: str, subject: str, body: str):
         return False
 
 def send_email_async(to_email: str, subject: str, body: str):
-    """Асинхронная отправка email (в фоновом потоке)"""
     thread = Thread(target=send_email, args=(to_email, subject, body))
     thread.daemon = True
     thread.start()
 
 def check_and_send_notifications_sync():
-    """Проверка экзаменов и отправка уведомлений"""
+    if not NOTIFICATIONS_ENABLED:
+        print("ℹ️ Уведомления отключены в конфигурации")
+        return 0
+    
     print(f"\n🕐 Проверка экзаменов в {datetime.now().strftime('%d.%m.%Y %H:%M')}")
     
-    conn = sqlite3.connect('exams.db')
+    conn = sqlite3.connect(CONFIG['database']['path'])
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Получаем всех пользователей с email
+    today = datetime.now().date()
+    notifications_sent = 0
+    
     cursor.execute("""
         SELECT u.user_id, u.full_name, u.email, 
                e.id as exam_id, e.name as exam_name, 
@@ -275,170 +337,79 @@ def check_and_send_notifications_sync():
         WHERE u.email IS NOT NULL AND u.email != ''
     """)
     
-    today = datetime.now().date()
-    notifications_sent = 0
-    
-    # Словарь для хранения уведомлений по дням
-    notifications_map = {}  # {user_email: {'name': '', 'exams': {30: [], 7: [], 3: [], 2: [], 1: []}}}
-    
     for row in cursor.fetchall():
         try:
             exam_date = datetime.strptime(row['exam_date'], '%d.%m.%Y').date()
             duration_months = int(row['duration'])
             
-            # Вычисляем дату окончания
-            # Простое добавление месяцев (приблизительно)
             year = exam_date.year + (exam_date.month + duration_months - 1) // 12
             month = (exam_date.month + duration_months - 1) % 12 + 1
             day = exam_date.day
-            # Корректировка дня для последних чисел месяца
-            from calendar import monthrange
             last_day = monthrange(year, month)[1]
             end_day = min(day, last_day)
             end_date = date(year, month, end_day)
             
             days_left = (end_date - today).days
+            exam_id = row['exam_id']
+            last_sent = row['last_notification_day'] or 0
             
-            # Определяем, нужно ли отправить уведомление (точные дни: 30, 7, 3, 2, 1)
-            notify_days = [30, 7, 3, 2, 1]
-            notify_day = None
-            
-            for nd in notify_days:
-                if days_left == nd:
-                    notify_day = nd
-                    break
-            
-            # Также проверяем просроченные экзамены (days_left < 0)
-            is_expired = days_left < 0
-            
-            if notify_day is not None or is_expired:
-                email = row['email']
-                if email not in notifications_map:
-                    notifications_map[email] = {
-                        'name': row['full_name'],
-                        'exams': {30: [], 7: [], 3: [], 2: [], 1: [], 'expired': []}
-                    }
-                
-                exam_info = {
-                    'name': row['exam_name'],
-                    'end_date': end_date.strftime('%d.%m.%Y'),
-                    'days_left': days_left
-                }
-                
-                if is_expired:
-                    notifications_map[email]['exams']['expired'].append(exam_info)
-                elif notify_day is not None:
-                    notifications_map[email]['exams'][notify_day].append(exam_info)
+            for nd in NOTIFY_DAYS:
+                if days_left == nd and last_sent != nd:
+                    subject = f"⚠️ Уведомление об экзамене - {row['full_name']}"
+                    body = f"""
+Здравствуйте, {row['full_name']}!
+
+Ваш экзамен "{row['exam_name']}" истекает через {nd} дней!
+
+• Дата окончания: {end_date.strftime('%d.%m.%Y')}
+• Осталось дней: {days_left}
+
+Пожалуйста, продлите экзамен в системе:
+http://localhost:{CONFIG['server']['port']}
+
+---
+Это автоматическое уведомление.
+"""
+                    if send_email(row['email'], subject, body):
+                        cursor.execute(
+                            "UPDATE exams SET last_notification_day = ? WHERE id = ?",
+                            (nd, exam_id)
+                        )
+                        conn.commit()
+                        notifications_sent += 1
+                        print(f"✅ Уведомление за {nd} дней отправлено для {row['exam_name']} -> {row['email']}")
+                    
+            if NOTIFY_EXPIRED and days_left < 0 and last_sent != -1:
+                subject = f"🔴 СРОЧНО! Экзамен просрочен - {row['full_name']}"
+                body = f"""
+Здравствуйте, {row['full_name']}!
+
+ВАШ ЭКЗАМЕН ПРОСРОЧЕН!
+
+• Экзамен: {row['exam_name']}
+• Действовал до: {end_date.strftime('%d.%m.%Y')}
+• Просрочен на: {abs(days_left)} дней
+
+НЕОБХОДИМО СРОЧНО ПЕРЕСДАТЬ ЭКЗАМЕН!
+
+Перейдите в систему: http://localhost:{CONFIG['server']['port']}
+
+---
+Это автоматическое уведомление.
+"""
+                if send_email(row['email'], subject, body):
+                    cursor.execute(
+                        "UPDATE exams SET last_notification_day = -1 WHERE id = ?",
+                        (exam_id,)
+                    )
+                    conn.commit()
+                    notifications_sent += 1
                     
         except Exception as e:
             print(f"Ошибка обработки экзамена: {e}")
             continue
     
     conn.close()
-    
-    # Отправляем уведомления
-    for email, data in notifications_map.items():
-        subject = f"📋 Уведомление об экзаменах - {data['name']}"
-        
-        body = f"""
-Здравствуйте, {data['name']}!
-
-Система уведомляет вас о статусе ваших экзаменов.
-
-{'=' * 50}
-
-"""
-        # Просроченные экзамены
-        if data['exams']['expired']:
-            body += "🔴 ПРОСРОЧЕННЫЕ ЭКЗАМЕНЫ:\n"
-            for exam in data['exams']['expired']:
-                body += f"""
-   ❌ {exam['name']}
-      • Просрочен на {abs(exam['days_left'])} дней
-      • Действовал до: {exam['end_date']}
-      • НЕОБХОДИМО СРОЧНО ПЕРЕСДАТЬ!
-
-"""
-        
-        # Уведомление за 30 дней
-        if data['exams'][30]:
-            body += "📅 ИСТЕКАЕТ ЧЕРЕЗ 30 ДНЕЙ:\n"
-            for exam in data['exams'][30]:
-                body += f"""
-   🟡 {exam['name']}
-      • Истекает через: {exam['days_left']} дней
-      • Действует до: {exam['end_date']}
-      • Рекомендуется запланировать пересдачу
-
-"""
-        
-        # Уведомление за 7 дней
-        if data['exams'][7]:
-            body += "🟠 ИСТЕКАЕТ ЧЕРЕЗ 7 ДНЕЙ:\n"
-            for exam in data['exams'][7]:
-                body += f"""
-   🟠 {exam['name']}
-      • Истекает через: {exam['days_left']} дней
-      • Действует до: {exam['end_date']}
-      • Рекомендуется запланировать пересдачу
-
-"""
-        
-        # Уведомление за 3 дня
-        if data['exams'][3]:
-            body += "🔴 ИСТЕКАЕТ ЧЕРЕЗ 3 ДНЯ:\n"
-            for exam in data['exams'][3]:
-                body += f"""
-   🔴 {exam['name']}
-      • Истекает через: {exam['days_left']} дней
-      • Действует до: {exam['end_date']}
-      • СРОЧНО ПРОДЛИТЕ ЭКЗАМЕН!
-
-"""
-        
-        # Уведомление за 2 дня
-        if data['exams'][2]:
-            body += "🔴 ИСТЕКАЕТ ЧЕРЕЗ 2 ДНЯ:\n"
-            for exam in data['exams'][2]:
-                body += f"""
-   🔴 {exam['name']}
-      • Истекает через: {exam['days_left']} дней
-      • Действует до: {exam['end_date']}
-      • СРОЧНО ПРОДЛИТЕ ЭКЗАМЕН!
-
-"""
-        
-        # Уведомление за 1 день
-        if data['exams'][1]:
-            body += "🔴 ИСТЕКАЕТ ЗАВТРА! (1 день):\n"
-            for exam in data['exams'][1]:
-                body += f"""
-   🔴 {exam['name']}
-      • Истекает через: {exam['days_left']} дней
-      • Действует до: {exam['end_date']}
-      • СРОЧНО ПРОДЛИТЕ ЭКЗАМЕН!
-
-"""
-        
-        body += f"""
-{'=' * 50}
-
-📌 Действия:
-• Просроченные экзамены - срочно пересдайте
-• Экзамены с остатком 7-30 дней - запланируйте продление
-• Экзамены с остатком 1-3 дня - срочно продлите
-
-➡️ Для продления экзамена войдите в систему:
-   http://localhost:8000
-
----
-Это автоматическое уведомление. Пожалуйста, не отвечайте на это письмо.
-"""
-        
-        if send_email(email, subject, body):
-            notifications_sent += 1
-            print(f"✅ Уведомление отправлено на {email}")
-    
     print(f"📊 Отправлено уведомлений: {notifications_sent}")
     return notifications_sent
 
@@ -508,14 +479,11 @@ async def update_email(email_data: EmailUpdate, current_user=Depends(get_current
     finally:
         conn.close()
 
-# Ручная отправка уведомлений (для админа)
 @app.post("/api/v1/notifications/send")
 async def send_notifications_manual(current_user=Depends(get_current_user)):
-    """Ручная отправка уведомлений (только для админа)"""
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Доступ запрещен")
     
-    # Запускаем в фоновом потоке
     thread = Thread(target=check_and_send_notifications_sync)
     thread.daemon = True
     thread.start()
@@ -603,22 +571,89 @@ async def get_my_exams(current_user=Depends(get_current_user)):
 @app.post("/api/v1/exams")
 async def add_exam(exam_data: ExamAdd, current_user=Depends(get_current_user)):
     conn = get_db()
-    cursor = conn.execute("SELECT name, duration FROM exam_types WHERE id = ?", (exam_data.exam_type_id,))
-    exam_type = cursor.fetchone()
-    if not exam_type:
-        raise HTTPException(status_code=404, detail="Тип экзамена не найден")
-    exam_date = datetime.strptime(exam_data.date, '%Y-%m-%d')
-    if exam_date > datetime.now():
-        raise HTTPException(status_code=400, detail="Нельзя выбрать дату из будущего")
-    formatted_date = exam_date.strftime('%d.%m.%Y')
-    conn.execute("""
-        INSERT INTO exams (user_id, name, date, duration, notification_sent, month_notification_sent,
-                          week_notification_sent, exam_day_notification_sent, end_day_notification_sent)
-        VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0)
-    """, (current_user["user_id"], exam_type['name'], formatted_date, str(exam_type['duration'])))
-    conn.commit()
-    conn.close()
-    return {"message": "Экзамен успешно добавлен", "success": True}
+    try:
+        cursor = conn.execute("SELECT name, duration FROM exam_types WHERE id = ?", (exam_data.exam_type_id,))
+        exam_type = cursor.fetchone()
+        if not exam_type:
+            raise HTTPException(status_code=404, detail="Тип экзамена не найден")
+        
+        cursor = conn.execute(
+            "SELECT id, date FROM exams WHERE user_id = ? AND name = ?",
+            (current_user["user_id"], exam_type['name'])
+        )
+        existing_exam = cursor.fetchone()
+        
+        if existing_exam:
+            raise HTTPException(
+                status_code=409, 
+                detail=f"Экзамен '{exam_type['name']}' уже существует. Используйте продление."
+            )
+        
+        exam_date = datetime.strptime(exam_data.date, '%Y-%m-%d')
+        if exam_date > datetime.now():
+            raise HTTPException(status_code=400, detail="Нельзя выбрать дату из будущего")
+        
+        formatted_date = exam_date.strftime('%d.%m.%Y')
+        
+        conn.execute("""
+            INSERT INTO exams (user_id, name, date, duration, notification_sent, month_notification_sent,
+                              week_notification_sent, exam_day_notification_sent, end_day_notification_sent, last_notification_day)
+            VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0)
+        """, (current_user["user_id"], exam_type['name'], formatted_date, str(exam_type['duration'])))
+        
+        conn.commit()
+        return {"message": "Экзамен успешно добавлен", "success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.put("/api/v1/exams/{exam_id}/extend")
+async def extend_exam(exam_id: int, request: Request, current_user=Depends(get_current_user)):
+    conn = get_db()
+    try:
+        data = await request.json()
+        new_date_str = data.get('date')
+        
+        cursor = conn.execute(
+            "SELECT user_id, name, date FROM exams WHERE id = ?",
+            (exam_id,)
+        )
+        exam = cursor.fetchone()
+        
+        if not exam:
+            raise HTTPException(status_code=404, detail="Экзамен не найден")
+        
+        if exam['user_id'] != current_user["user_id"] and current_user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+        try:
+            new_date = datetime.strptime(new_date_str, '%d.%m.%Y')
+            if new_date > datetime.now():
+                raise HTTPException(status_code=400, detail="Нельзя выбрать дату из будущего")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Неверный формат даты. Используйте ДД.ММ.ГГГГ")
+        
+        conn.execute(
+            "UPDATE exams SET date = ? WHERE id = ?",
+            (new_date_str, exam_id)
+        )
+        conn.commit()
+        
+        try:
+            conn.execute(
+                "UPDATE exams SET last_notification_day = 0 WHERE id = ?",
+                (exam_id,)
+            )
+            conn.commit()
+        except:
+            pass
+        
+        return {"message": "Экзамен успешно продлен", "success": True}
+    finally:
+        conn.close()
 
 @app.put("/api/v1/exams/{exam_id}")
 async def update_exam_date(exam_id: int, request: Request, current_user=Depends(get_current_user)):
@@ -679,6 +714,31 @@ async def delete_exam(exam_id: int, current_user=Depends(get_current_user)):
     finally:
         conn.close()
 
+@app.get("/api/v1/exams/check-duplicate")
+async def check_exam_duplicate(exam_type_id: int, current_user=Depends(get_current_user)):
+    conn = get_db()
+    try:
+        cursor = conn.execute("SELECT name, duration FROM exam_types WHERE id = ?", (exam_type_id,))
+        exam_type = cursor.fetchone()
+        if not exam_type:
+            return {"exists": False}
+        
+        cursor = conn.execute(
+            "SELECT id, date FROM exams WHERE user_id = ? AND name = ?",
+            (current_user["user_id"], exam_type['name'])
+        )
+        existing = cursor.fetchone()
+        
+        if existing:
+            return {
+                "exists": True,
+                "exam_id": existing['id'],
+                "exam_date": existing['date']
+            }
+        return {"exists": False}
+    finally:
+        conn.close()
+
 @app.get("/api/v1/exam-types")
 async def get_exam_types():
     conn = get_db()
@@ -698,19 +758,9 @@ async def get_my_status(current_user=Depends(get_current_user)):
     """, (current_user["user_id"],))
     
     statuses = []
-    today = datetime.now()
     
     for row in cursor:
-        is_active = False
-        if row['end_date'] is None or row['end_date'] == '':
-            is_active = True
-        else:
-            try:
-                end_date = datetime.strptime(row['end_date'], '%d.%m.%Y')
-                if end_date >= today:
-                    is_active = True
-            except:
-                pass
+        is_active = is_status_active(row['start_date'], row['end_date'])
         
         statuses.append({
             "id": row['id'],
@@ -787,7 +837,7 @@ async def close_status(status_id: int, request: Request, current_user=Depends(ge
         )
         conn.commit()
         
-        return {"message": "Больничный закрыт", "success": True}
+        return {"message": "Статус закрыт", "success": True}
     finally:
         conn.close()
 
@@ -904,7 +954,7 @@ async def extend_sick_leave(
         )
         conn.commit()
         
-        return {"message": "Больничный продлен", "success": True}
+        return {"message": "Статус продлен", "success": True}
     finally:
         conn.close()
 
@@ -926,16 +976,7 @@ async def get_current_status_stats(current_user=Depends(get_current_user)):
         
         active_status = None
         for row in cursor:
-            is_active = False
-            if row['end_date'] is None or row['end_date'] == '':
-                is_active = True
-            else:
-                try:
-                    end_date = datetime.strptime(row['end_date'], '%d.%m.%Y')
-                    if end_date >= today:
-                        is_active = True
-                except:
-                    pass
+            is_active = is_status_active(row['start_date'], row['end_date'])
             
             if is_active:
                 active_status = row
@@ -993,43 +1034,47 @@ async def get_current_status_stats(current_user=Depends(get_current_user)):
 
 @app.get("/")
 async def root():
-    if os.path.exists('uaiss.html'):
-        return FileResponse('uaiss.html')
-    return {"message": "UAISS Web API работает. Добавьте файл uaiss.html"}
+    if os.path.exists('new_uaiss.html'):
+        return FileResponse('new_uaiss.html')
+    return {"message": "UAISS Web API работает. Добавьте файл new_uaiss.html"}
 
-# ============= ПЛАНИРОВЩИК ДЛЯ ЕЖЕДНЕВНОЙ ОТПРАВКИ В 09:00 =============
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import atexit
 
-# Глобальная переменная для планировщика
 scheduler = None
 
 def start_scheduler():
-    """Запуск планировщика уведомлений - работает в фоне независимо от запросов"""
     global scheduler
+    if scheduler is not None:
+        try:
+            scheduler.shutdown()
+        except:
+            pass
+    
     scheduler = BackgroundScheduler()
     
-    # Ежедневно в 09:00
+    send_hour = CONFIG['notifications']['send_time_hour']
+    send_minute = CONFIG['notifications']['send_time_minute']
+    
     scheduler.add_job(
         func=check_and_send_notifications_sync,
-        trigger=CronTrigger(hour=9, minute=0),
-        id='daily_notifications_9am',
-        name='Ежедневная отправка уведомлений в 09:00',
+        trigger=CronTrigger(hour=send_hour, minute=send_minute),
+        id='daily_notifications',
+        name=f'Ежедневная отправка уведомлений в {send_hour:02d}:{send_minute:02d}',
         replace_existing=True
     )
     
     scheduler.start()
-    print("📅 Планировщик уведомлений ЗАПУЩЕН!")
-    print("   • Отправка КАЖДЫЙ ДЕНЬ в 09:00")
-    print("   • Работает в фоне, не зависит от активности пользователей")
+    print(f"📅 Планировщик уведомлений ЗАПУЩЕН!")
+    print(f"   • Отправка КАЖДЫЙ ДЕНЬ в {send_hour:02d}:{send_minute:02d}")
+    print(f"   • Дни уведомлений: {NOTIFY_DAYS}")
+    print(f"   • Работает в фоне, не зависит от активности пользователей")
     
-    # Регистрируем остановку планировщика при завершении приложения
     atexit.register(lambda: scheduler.shutdown() if scheduler else None)
     
     return scheduler
 
-# Автоматический запуск планировщика при старте приложения
 print("🚀 Инициализация UAISS Web API...")
 start_scheduler()
 
@@ -1037,16 +1082,18 @@ if __name__ == "__main__":
     import uvicorn
     check_and_fix_database()
     print("=" * 50)
-    print(" UAISS Web API Сервер запущен!")
-    print(" http://localhost:8000")
+    print(f" {CONFIG['app']['name']} Сервер запущен!")
+    print(f" http://localhost:{CONFIG['server']['port']}")
     print(" Документация: http://localhost:8000/docs")
     print("=" * 50)
     print("\n📧 Email уведомления:")
-    print("   • Планировщик автоматически отправляет уведомления каждый день в 09:00")
-    print("   • Отправка происходит независимо от активности пользователей")
+    print(f"   • Планировщик: каждый день в {CONFIG['notifications']['send_time_hour']:02d}:{CONFIG['notifications']['send_time_minute']:02d}")
+    print(f"   • Дни уведомлений: {NOTIFY_DAYS}")
     print("   • Для ручной отправки: POST /api/v1/notifications/send (только админ)")
-    print("\nТестовые учетные записи:")
-    print("👤 Сотрудник: user@uaiss.ru / 123456")
-    print("👑 Администратор: admin@uaiss.ru / admin123")
+    print(f"\n🔧 Файл конфигурации: config.json")
+    print("\n🔑 Тестовые учетные записи:")
+    print("👤 Сотрудник: коваленко / 123456")
+    print("👤 Сотрудник: смирнов / 123456")
+    print("👑 Администратор: морозова / admin123")
     print()
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host=CONFIG['server']['host'], port=CONFIG['server']['port'])

@@ -15,7 +15,6 @@
             --success: #16A34A; --warning: #D97706; --danger: #DC2626;
             --border: #E2E8F0; --sick: #EF4444; --business-trip: #8B5CF6;
             --vacation: #0EA5E9; --working: #10B981; --card-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            --profile-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         body.dark {
             --bg-primary: #0F172A; --bg-surface: #1E293B; --text-primary: #F1F5F9;
@@ -23,7 +22,6 @@
             --success: #22C55E; --warning: #F59E0B; --danger: #EF4444;
             --border: #334155; --sick: #F87171; --business-trip: #A78BFA;
             --vacation: #38BDF8; --working: #34D399; --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            --profile-bg: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
         }
         body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); transition: all 0.3s ease; }
         .app { max-width: 500px; margin: 0 auto; min-height: 100vh; background: var(--bg-primary); position: relative; padding-bottom: 70px; }
@@ -42,7 +40,6 @@
         .content { padding: 16px; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Login styles */
         .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-surface) 100%); }
         .login-card { background: var(--bg-surface); border-radius: 32px; padding: 40px 24px; width: 100%; max-width: 400px; box-shadow: 0 20px 35px -10px rgba(0,0,0,0.1); text-align: center; }
         .login-logo { font-size: 48px; margin-bottom: 16px; }
@@ -57,21 +54,18 @@
         .error-message { background: rgba(239, 68, 68, 0.1); color: var(--danger); padding: 12px; border-radius: 12px; font-size: 14px; margin-top: 16px; text-align: center; }
         .test-creds { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); text-align: center; }
         
-        /* Card styles */
         .card { background: var(--bg-surface); border-radius: 20px; padding: 16px; margin-bottom: 16px; box-shadow: var(--card-shadow); transition: all 0.2s; }
         .card-clickable { cursor: pointer; }
         .card-clickable:active { transform: scale(0.98); }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
         .card-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         
-        /* Stats styles */
         .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
         .stat-card { background: var(--bg-surface); border-radius: 16px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
         .stat-card:active { transform: scale(0.96); }
         .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
         .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
         
-        /* Exam styles */
         .exam-card { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .exam-icon { font-size: 32px; width: 48px; height: 48px; background: var(--bg-primary); border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .exam-info { flex: 1; min-width: 150px; }
@@ -83,93 +77,24 @@
         .badge-expiring { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
         .badge-expired { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
         
-        /* Status styles */
         .status-card { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
         .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; background: rgba(16, 185, 129, 0.1); color: var(--working); }
         
-        /* Button styles */
         .btn { border: none; padding: 10px 16px; border-radius: 14px; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 13px; transition: all 0.2s; }
         .btn-primary { background: var(--accent); color: white; }
         .btn-primary:active { transform: scale(0.96); }
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
         .btn-outline:active { transform: scale(0.96); }
         
-        /* Exam types grid */
         .exam-types-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
         .exam-type-btn { background: var(--bg-surface); border: 2px solid var(--border); border-radius: 16px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
         .exam-type-btn.selected { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); }
         .exam-type-btn:active { transform: scale(0.96); }
         
-        /* Modal styles */
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; z-index: 200; }
         .modal-content { background: var(--bg-surface); border-radius: 28px 28px 0 0; padding: 24px; max-height: 85vh; overflow-y: auto; width: 100%; animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         
-        /* Profile card styles */
-        .profile-card {
-            background: var(--profile-bg);
-            border-radius: 24px;
-            padding: 24px;
-            margin-bottom: 20px;
-            color: white;
-            position: relative;
-            overflow: hidden;
-        }
-        .profile-card::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            pointer-events: none;
-        }
-        .profile-avatar {
-            font-size: 56px;
-            margin-bottom: 12px;
-            display: inline-block;
-            background: rgba(255,255,255,0.2);
-            border-radius: 60px;
-            padding: 12px;
-        }
-        .profile-name-card {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-        .profile-role-badge {
-            display: inline-block;
-            background: rgba(255,255,255,0.2);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            margin-top: 8px;
-        }
-        .profile-stats {
-            display: flex;
-            gap: 16px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        .profile-stat {
-            background: rgba(255,255,255,0.15);
-            border-radius: 16px;
-            padding: 10px 16px;
-            text-align: center;
-            flex: 1;
-            min-width: 80px;
-        }
-        .profile-stat-value {
-            font-size: 20px;
-            font-weight: 700;
-        }
-        .profile-stat-label {
-            font-size: 11px;
-            opacity: 0.8;
-        }
-        
-        /* Profile modal styles - красивые плашки */
         .profile-modal-card {
             background: var(--bg-surface);
             border-radius: 20px;
@@ -219,60 +144,7 @@
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
-        .profile-field input:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        .profile-email-card {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .profile-email-icon {
-            font-size: 32px;
-        }
-        .profile-email-info {
-            flex: 1;
-        }
-        .profile-email-label {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-        .profile-email-value {
-            font-weight: 600;
-            font-size: 14px;
-        }
-        .profile-password-card {
-            background: rgba(245, 158, 11, 0.1);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .profile-password-icon {
-            font-size: 32px;
-        }
-        .profile-password-info {
-            flex: 1;
-        }
-        .profile-password-label {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-        .profile-password-value {
-            font-weight: 600;
-            font-size: 14px;
-        }
         
-        /* Employee list item */
         .employee-list-item {
             display: flex;
             justify-content: space-between;
@@ -286,7 +158,6 @@
         .employee-name { font-weight: 600; font-size: 15px; }
         .employee-period { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
         
-        /* Status stats card */
         .status-stats-card { background: linear-gradient(135deg, var(--bg-surface), var(--bg-primary)); border-radius: 20px; padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); }
         .status-stats-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         .status-stats-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
@@ -296,25 +167,20 @@
         .status-stat-count { font-size: 18px; font-weight: 700; }
         .status-stat-label { font-size: 9px; color: var(--text-secondary); white-space: nowrap; }
         
-        /* Sort buttons */
         .sort-buttons { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
         .sort-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 30px; padding: 8px 14px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
         .sort-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
         
-        /* Toast */
         .toast { position: fixed; bottom: 80px; left: 16px; right: 16px; background: var(--bg-surface); color: var(--text-primary); padding: 12px 16px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 150; animation: slideUp 0.3s ease; text-align: center; font-weight: 500; }
         
-        /* Empty state */
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
         .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
         
-        /* Colors */
         .working-color { color: var(--working); }
         .sick-color { color: var(--sick); }
         .trip-color { color: var(--business-trip); }
         .vacation-color { color: var(--vacation); }
         
-        /* Responsive fixes */
         @media (max-width: 450px) {
             .content { padding: 12px; }
             .card { padding: 14px; }
@@ -330,8 +196,6 @@
             .stat-card { padding: 12px; }
             .stat-value { font-size: 24px; }
             .employee-list-item { flex-direction: column; align-items: flex-start; }
-            .profile-stats { gap: 8px; }
-            .profile-stat { padding: 8px 12px; }
         }
         
         @media (max-width: 380px) {
@@ -450,24 +314,206 @@
             render();
         }
 
+        // Форматирование имени: фамилия + инициалы
+        function formatShortName(fullName) {
+            if (!fullName) return 'Пользователь';
+            
+            const parts = fullName.trim().split(/\s+/);
+            
+            if (parts.length === 1) {
+                return parts[0];
+            }
+            
+            const lastName = parts[0];
+            const initials = parts.slice(1).map(part => part.charAt(0).toUpperCase()).join('');
+            
+            if (initials) {
+                return `${lastName} ${initials}.`;
+            }
+            
+            return lastName;
+        }
+
+        // ============= ФУНКЦИИ ПРОДЛЕНИЯ ЭКЗАМЕНА =============
+        
+        window.showExtendConfirmModal = (examId, examName, currentDate) => {
+            const modalHtml = `
+                <div class="modal-overlay" onclick="window.closeExtendConfirmModal()">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
+                        <div class="card-header" style="margin-bottom: 16px;">
+                            <div class="card-title" style="font-size: 18px;">⚠️ Экзамен уже существует</div>
+                            <button class="btn btn-outline" onclick="window.closeExtendConfirmModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
+                        </div>
+                        <div style="text-align: center; margin-bottom: 16px;">
+                            <div style="font-size: 48px; margin-bottom: 8px;">📚</div>
+                            <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">${examName}</div>
+                            <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 8px;">Текущая дата сдачи: ${currentDate}</div>
+                            <div style="font-size: 13px; color: #D97706;">Хотите продлить экзамен?</div>
+                        </div>
+                        <div style="display: flex; gap: 12px; margin-top: 20px;">
+                            <button class="btn btn-primary" style="flex: 1; background: var(--accent);" onclick="window.openExtendDateModal(${examId}, '${currentDate}')">
+                                🔄 Продлить
+                            </button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeExtendConfirmModal()">
+                                Отмена
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existingModal = document.getElementById('extendConfirmModal');
+            if (existingModal) existingModal.remove();
+            
+            const modalDiv = document.createElement('div');
+            modalDiv.id = 'extendConfirmModal';
+            modalDiv.innerHTML = modalHtml;
+            document.body.appendChild(modalDiv);
+        };
+
+        window.closeExtendConfirmModal = () => {
+            const modal = document.getElementById('extendConfirmModal');
+            if (modal) modal.remove();
+        };
+
+        window.openExtendDateModal = (examId, currentDate) => {
+            window.closeExtendConfirmModal();
+            
+            let formattedDate = '';
+            if (currentDate) {
+                const parts = currentDate.split('.');
+                if (parts.length === 3) {
+                    formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+            }
+            
+            const modalHtml = `
+                <div class="modal-overlay" onclick="window.closeExtendDateModal()">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
+                        <div class="card-header" style="margin-bottom: 16px;">
+                            <div class="card-title" style="font-size: 18px;">📅 Выбор новой даты</div>
+                            <button class="btn btn-outline" onclick="window.closeExtendDateModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
+                        </div>
+                        <div style="text-align: center; margin-bottom: 16px;">
+                            <div style="font-size: 48px; margin-bottom: 8px;">📅</div>
+                            <div style="font-size: 14px; color: var(--text-secondary);">Выберите новую дату сдачи экзамена</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">📅 Новая дата сдачи</label>
+                            <input type="date" class="form-input" id="extendNewDate" value="${formattedDate}" max="${new Date().toISOString().split('T')[0]}">
+                            <small style="font-size: 11px; color: var(--text-secondary);">Нельзя выбрать дату из будущего</small>
+                        </div>
+                        <div style="display: flex; gap: 12px; margin-top: 20px;">
+                            <button class="btn btn-primary" style="flex: 1;" onclick="window.confirmExtendExamDate(${examId})">
+                                ✅ Подтвердить
+                            </button>
+                            <button class="btn btn-outline" style="flex: 1;" onclick="window.closeExtendDateModal()">
+                                Отмена
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existingModal = document.getElementById('extendDateModal');
+            if (existingModal) existingModal.remove();
+            
+            const modalDiv = document.createElement('div');
+            modalDiv.id = 'extendDateModal';
+            modalDiv.innerHTML = modalHtml;
+            document.body.appendChild(modalDiv);
+        };
+
+        window.closeExtendDateModal = () => {
+            const modal = document.getElementById('extendDateModal');
+            if (modal) modal.remove();
+        };
+
+        window.confirmExtendExamDate = async (examId) => {
+            const dateInput = document.getElementById('extendNewDate');
+            
+            if (!dateInput || !dateInput.value) {
+                showToast('❌ Выберите новую дату');
+                return;
+            }
+            
+            const newDate = dateInput.value.split('-').reverse().join('.');
+            
+            const selectedDate = new Date(dateInput.value);
+            if (selectedDate > new Date()) {
+                showToast('❌ Нельзя выбрать дату из будущего');
+                return;
+            }
+            
+            showToast('⏳ Обновление даты...');
+            
+            try {
+                const response = await apiRequest(`/exams/${examId}/extend`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ date: newDate })
+                });
+                
+                if (response.ok) {
+                    showToast('✅ Экзамен успешно продлен');
+                    window.closeExtendDateModal();
+                    await loadAllData();
+                    render();
+                } else {
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail || 'Ошибка продления'}`);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                showToast('❌ Ошибка соединения с сервером');
+            }
+        };
+
         async function addExam(examTypeId, date) {
             try {
+                showToast('⏳ Проверка...');
+                
+                const checkResponse = await apiRequest(`/exams/check-duplicate?exam_type_id=${examTypeId}`);
+                
+                if (!checkResponse.ok) {
+                    showToast('❌ Ошибка проверки экзамена');
+                    return false;
+                }
+                
+                const checkData = await checkResponse.json();
+                
+                if (checkData.exists) {
+                    const examTypeName = examTypes.find(t => t.id === examTypeId)?.name;
+                    window.showExtendConfirmModal(
+                        checkData.exam_id,
+                        examTypeName,
+                        checkData.exam_date
+                    );
+                    return false;
+                }
+                
                 const response = await apiRequest('/exams', {
                     method: 'POST',
                     body: JSON.stringify({ exam_type_id: examTypeId, date: date })
                 });
+                
                 if (response.ok) {
                     showToast('✅ Экзамен успешно добавлен');
                     await loadAllData();
                     currentView = 'exams';
                     render();
                     return true;
+                } else if (response.status === 409) {
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail}`);
+                    return false;
                 } else {
-                    showToast('❌ Ошибка добавления');
+                    const error = await response.json();
+                    showToast(`❌ ${error.detail || 'Ошибка добавления'}`);
                     return false;
                 }
             } catch (error) {
-                showToast('❌ Ошибка соединения');
+                console.error('Ошибка:', error);
+                showToast('❌ Ошибка соединения с сервером');
                 return false;
             }
         }
@@ -861,6 +907,7 @@
                         <div class="test-creds">
                             <div style="margin-bottom: 8px;">🔑 Тестовые данные:</div>
                             <div>👤 Сотрудник: коваленко / 123456</div>
+                            <div>👤 Сотрудник: смирнов / 123456</div>
                             <div>👑 Администратор: морозова / admin123</div>
                         </div>
                     </div>
@@ -869,90 +916,91 @@
         }
 
         function HomeView() {
-    if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
-    const expiringCount = myExams.filter(e => e.status === 'Истекает').length;
-    const criticalCount = myExams.filter(e => e.status === 'Истекает' && e.days_left <= 7).length;
-    const activeStatus = getActiveStatus();
-    const activeStatusText = activeStatus ? activeStatus.status : "🟢 На рабочем месте";
-    const upcomingExams = myExams.filter(e => e.status === 'Истекает').slice(0, 3);
-    const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0 };
-    
-    return `
-        <div class="content">
-            <div class="status-stats-card">
-                <div class="status-stats-title">📊 Статистика статусов</div>
-                <div class="status-stats-grid">
-                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('working')">
-                        <div class="status-stat-emoji">🟢</div>
-                        <div class="status-stat-count working-color">${stats.working || 0}</div>
-                        <div class="status-stat-label">Работают</div>
-                    </div>
-                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('sick')">
-                        <div class="status-stat-emoji">🤒</div>
-                        <div class="status-stat-count sick-color">${stats.sick || 0}</div>
-                        <div class="status-stat-label">Больничный</div>
-                    </div>
-                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('trip')">
-                        <div class="status-stat-emoji">✈️</div>
-                        <div class="status-stat-count trip-color">${stats.trip || 0}</div>
-                        <div class="status-stat-label">Командировка</div>
-                    </div>
-                    <div class="status-stat-item" onclick="window.setStatusFilterAndGo('vacation')">
-                        <div class="status-stat-emoji">🏖️</div>
-                        <div class="status-stat-count vacation-color">${stats.vacation || 0}</div>
-                        <div class="status-stat-label">Отпуск</div>
-                    </div>
-                </div>
-            </div>
+            if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
+            const expiringCount = myExams.filter(e => e.status === 'Истекает').length;
+            const criticalCount = myExams.filter(e => e.status === 'Истекает' && e.days_left <= 7).length;
+            const activeStatus = getActiveStatus();
+            const activeStatusText = activeStatus ? activeStatus.status : "🟢 На рабочем месте";
+            const upcomingExams = myExams.filter(e => e.status === 'Истекает').slice(0, 3);
+            const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0 };
             
-            <div class="stats-grid">
-                <div class="stat-card" onclick="window.changeView('exams')">
-                    <div class="stat-value">${myExams.length}</div>
-                    <div class="stat-label">Мои экзамены</div>
-                </div>
-                <div class="stat-card" onclick="window.changeView('exams')">
-                    <div class="stat-value" style="color: ${criticalCount > 0 ? 'var(--danger)' : 'var(--warning)'};">${expiringCount}</div>
-                    <div class="stat-label">Истекают скоро</div>
-                </div>
-            </div>
-            
-            <div class="card card-clickable" onclick="window.changeView('exams')">
-                <div class="card-header">
-                    <div class="card-title">📋 Мои ближайшие экзамены</div>
-                    <span style="font-size: 12px;">→</span>
-                </div>
-                ${upcomingExams.length > 0 ? upcomingExams.map(exam => {
-                    const isCritical = exam.days_left <= 7;
-                    const cardStyle = isCritical ? 'border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.05);' : '';
-                    const dateColor = isCritical ? 'style="color: var(--danger); font-weight: bold;"' : '';
-                    return `
-                        <div class="exam-card" style="margin-bottom: 12px; ${cardStyle}">
-                            <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
-                            <div class="exam-info">
-                                <div class="exam-name">${exam.type}</div>
-                                <div class="exam-date" ${dateColor}>Истекает: ${exam.expires_at} • ${exam.days_left} дней</div>
+            return `
+                <div class="content">
+                    <div class="status-stats-card">
+                        <div class="status-stats-title">📊 Статистика статусов</div>
+                        <div class="status-stats-grid">
+                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('working')">
+                                <div class="status-stat-emoji">🟢</div>
+                                <div class="status-stat-count working-color">${stats.working || 0}</div>
+                                <div class="status-stat-label">Работают</div>
                             </div>
-                            <span class="badge ${isCritical ? 'badge-expired' : 'badge-expiring'}">${isCritical ? '🔴 КРИТИЧЕСКИ!' : '⚠️ Истекает'}</span>
+                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('sick')">
+                                <div class="status-stat-emoji">🤒</div>
+                                <div class="status-stat-count sick-color">${stats.sick || 0}</div>
+                                <div class="status-stat-label">Больничный</div>
+                            </div>
+                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('trip')">
+                                <div class="status-stat-emoji">✈️</div>
+                                <div class="status-stat-count trip-color">${stats.trip || 0}</div>
+                                <div class="status-stat-label">Командировка</div>
+                            </div>
+                            <div class="status-stat-item" onclick="window.setStatusFilterAndGo('vacation')">
+                                <div class="status-stat-emoji">🏖️</div>
+                                <div class="status-stat-count vacation-color">${stats.vacation || 0}</div>
+                                <div class="status-stat-label">Отпуск</div>
+                            </div>
                         </div>
-                    `;
-                }).join('') : '<div class="empty-state"><p>✅ Нет истекающих экзаменов</p></div>'}
-            </div>
-            
-            <div class="card">
-                <div class="card-header"><div class="card-title">👤 Мой текущий статус</div></div>
-                <div class="status-card">
-                    <span class="status-badge status-working">${activeStatusText}</span>
-                    <button class="btn btn-outline" onclick="window.changeView('status')">Изменить</button>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card" onclick="window.changeView('exams')">
+                            <div class="stat-value">${myExams.length}</div>
+                            <div class="stat-label">Мои экзамены</div>
+                        </div>
+                        <div class="stat-card" onclick="window.changeView('exams')">
+                            <div class="stat-value" style="color: ${criticalCount > 0 ? 'var(--danger)' : 'var(--warning)'};">${expiringCount}</div>
+                            <div class="stat-label">Истекают скоро</div>
+                        </div>
+                    </div>
+                    
+                    <div class="card card-clickable" onclick="window.changeView('exams')">
+                        <div class="card-header">
+                            <div class="card-title">📋 Мои ближайшие экзамены</div>
+                            <span style="font-size: 12px;">→</span>
+                        </div>
+                        ${upcomingExams.length > 0 ? upcomingExams.map(exam => {
+                            const isCritical = exam.days_left <= 7;
+                            const cardStyle = isCritical ? 'border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.05);' : '';
+                            const dateColor = isCritical ? 'style="color: var(--danger); font-weight: bold;"' : '';
+                            return `
+                                <div class="exam-card" style="margin-bottom: 12px; ${cardStyle}">
+                                    <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
+                                    <div class="exam-info">
+                                        <div class="exam-name">${exam.type}</div>
+                                        <div class="exam-date" ${dateColor}>Истекает: ${exam.expires_at} • ${exam.days_left} дней</div>
+                                    </div>
+                                    <span class="badge ${isCritical ? 'badge-expired' : 'badge-expiring'}">${isCritical ? '🔴 КРИТИЧЕСКИ!' : '⚠️ Истекает'}</span>
+                                </div>
+                            `;
+                        }).join('') : '<div class="empty-state"><p>✅ Нет истекающих экзаменов</p></div>'}
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header"><div class="card-title">👤 Мой текущий статус</div></div>
+                        <div class="status-card">
+                            <span class="status-badge status-working">${activeStatusText}</span>
+                            <button class="btn btn-outline" onclick="window.changeView('status')">Изменить</button>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" style="flex: 1;" onclick="window.changeView('add-exam')">+ Отметить экзамен</button>
+                        <button class="btn btn-outline" style="flex: 1;" onclick="window.changeView('status')">Изменить статус</button>
+                    </div>
                 </div>
-            </div>
-            
-            <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
-                <button class="btn btn-primary" style="flex: 1;" onclick="window.changeView('add-exam')">+ Отметить экзамен</button>
-                <button class="btn btn-outline" style="flex: 1;" onclick="window.changeView('status')">Изменить статус</button>
-            </div>
-        </div>
-    `;
-}
+            `;
+        }
+
         function MyExamsView() {
             if (isLoading) return `<div class="loading">⏳ Загрузка экзаменов...</div>`;
             const sortedExams = getSortedExams();
@@ -1242,67 +1290,62 @@
                 `;
             }
             if (modalType === 'profile') {
-    return `
-        <div class="modal-overlay profile-modal" onclick="window.closeProfileModal()">
-            <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
-                <div class="card-header" style="margin-bottom: 20px;">
-                    <div class="card-title" style="font-size: 20px;">👤 Личный кабинет</div>
-                    <button class="btn btn-outline" onclick="window.closeProfileModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
-                </div>
-                
-                <!-- Информация о пользователе -->
-                <div style="text-align: center; margin-bottom: 24px;">
-                    <div style="font-size: 64px; background: linear-gradient(135deg, var(--accent), #818CF8); border-radius: 60px; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">${currentUser?.role === 'admin' ? '👑' : '👤'}</div>
-                    <div style="font-size: 20px; font-weight: 600;">${currentUser?.name || ''}</div>
-                    <div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">${currentUser?.email || 'Email не указан'}</div>
-                    <div style="display: inline-block; margin-top: 8px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 500; background: ${currentUser?.role === 'admin' ? 'linear-gradient(135deg, #8B5CF6, #6366F1)' : 'var(--bg-primary)'}; color: ${currentUser?.role === 'admin' ? 'white' : 'var(--text-secondary)'}; border: 1px solid var(--border);">${currentUser?.role === 'admin' ? 'Администратор' : 'Сотрудник'}</div>
-                </div>
-                
-                <!-- Изменение email -->
-                <div class="profile-modal-card">
-                    <div class="profile-modal-header" style="background: linear-gradient(135deg, var(--accent), #818CF8);">
-                        <h4>✉️ Изменить email</h4>
-                    </div>
-                    <div class="profile-modal-body">
-                        <div class="profile-field">
-                            <label>Новый email</label>
-                            <input type="email" id="profileEmail" placeholder="Введите ваш email" value="${currentUser?.email || ''}">
+                return `
+                    <div class="modal-overlay profile-modal" onclick="window.closeProfileModal()">
+                        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 400px; margin: 0 auto; border-radius: 28px 28px 0 0;">
+                            <div class="card-header" style="margin-bottom: 20px;">
+                                <div class="card-title" style="font-size: 20px;">👤 Личный кабинет</div>
+                                <button class="btn btn-outline" onclick="window.closeProfileModal()" style="padding: 4px 12px; border-radius: 40px;">✕</button>
+                            </div>
+                            
+                            <div style="text-align: center; margin-bottom: 24px;">
+                                <div style="font-size: 64px; background: linear-gradient(135deg, var(--accent), #818CF8); border-radius: 60px; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">${currentUser?.role === 'admin' ? '👑' : '👤'}</div>
+                                <div style="font-size: 20px; font-weight: 600;">${currentUser?.name || ''}</div>
+                                <div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">${currentUser?.email || 'Email не указан'}</div>
+                                <div style="display: inline-block; margin-top: 8px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 500; background: ${currentUser?.role === 'admin' ? 'linear-gradient(135deg, #8B5CF6, #6366F1)' : 'var(--bg-primary)'}; color: ${currentUser?.role === 'admin' ? 'white' : 'var(--text-secondary)'}; border: 1px solid var(--border);">${currentUser?.role === 'admin' ? 'Администратор' : 'Сотрудник'}</div>
+                            </div>
+                            
+                            <div class="profile-modal-card">
+                                <div class="profile-modal-header" style="background: linear-gradient(135deg, var(--accent), #818CF8);">
+                                    <h4>✉️ Изменить email</h4>
+                                </div>
+                                <div class="profile-modal-body">
+                                    <div class="profile-field">
+                                        <label>Новый email</label>
+                                        <input type="email" id="profileEmail" placeholder="Введите ваш email" value="${currentUser?.email || ''}">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="profile-modal-card">
+                                <div class="profile-modal-header" style="background: linear-gradient(135deg, #F59E0B, #D97706);">
+                                    <h4>🔒 Смена пароля</h4>
+                                </div>
+                                <div class="profile-modal-body">
+                                    <div class="profile-field">
+                                        <label>Старый пароль</label>
+                                        <input type="password" id="oldPassword" placeholder="Введите старый пароль">
+                                    </div>
+                                    <div class="profile-field">
+                                        <label>Новый пароль</label>
+                                        <input type="password" id="newPassword" placeholder="Введите новый пароль">
+                                    </div>
+                                    <div class="profile-field">
+                                        <label>Подтверждение пароля</label>
+                                        <input type="password" id="confirmPassword" placeholder="Подтвердите новый пароль">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button class="btn-save" style="width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; margin-bottom: 16px;" onclick="window.saveProfileChanges()">💾 Сохранить изменения</button>
+                            
+                            <div class="profile-actions" style="text-align: center; padding-top: 16px; border-top: 1px solid var(--border);">
+                                <button class="btn-logout" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 14px; padding: 8px;" onclick="window.logout(); window.closeProfileModal();">🚪 Выйти из системы</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Смена пароля -->
-                <div class="profile-modal-card">
-                    <div class="profile-modal-header" style="background: linear-gradient(135deg, #F59E0B, #D97706);">
-                        <h4>🔒 Смена пароля</h4>
-                    </div>
-                    <div class="profile-modal-body">
-                        <div class="profile-field">
-                            <label>Старый пароль</label>
-                            <input type="password" id="oldPassword" placeholder="Введите старый пароль">
-                        </div>
-                        <div class="profile-field">
-                            <label>Новый пароль</label>
-                            <input type="password" id="newPassword" placeholder="Введите новый пароль">
-                        </div>
-                        <div class="profile-field">
-                            <label>Подтверждение пароля</label>
-                            <input type="password" id="confirmPassword" placeholder="Подтвердите новый пароль">
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Кнопка сохранения -->
-                <button class="btn-save" style="width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; margin-bottom: 16px;" onclick="window.saveProfileChanges()">💾 Сохранить изменения</button>
-                
-                <!-- Выход -->
-                <div class="profile-actions" style="text-align: center; padding-top: 16px; border-top: 1px solid var(--border);">
-                    <button class="btn-logout" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 14px; padding: 8px;" onclick="window.logout(); window.closeProfileModal();">🚪 Выйти из системы</button>
-                </div>
-            </div>
-        </div>
-    `;
-}
+                `;
+            }
             return '';
         };
 
@@ -1407,7 +1450,7 @@
                 default: mainContent = HomeView();
             }
             const navItems = [{ id: 'home', icon: '🏠', label: 'Главная' }, { id: 'exams', icon: '📋', label: 'Экзамены' }, { id: 'status', icon: '👤', label: 'Статус' }, { id: 'management', icon: '📊', label: 'Управление' }];
-            const html = `<div class="app"><div class="header"><div class="header-content"><div class="logo">UAISS Web</div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${currentUser?.name?.split(' ')[0] || ''}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="logout-btn" onclick="window.logout()">Выйти</button><button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}</div>`;
+            const html = `<div class="app"><div class="header"><div class="header-content"><div class="logo">UAISS Web</div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${formatShortName(currentUser?.name || '')}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="logout-btn" onclick="window.logout()">Выйти</button><button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}</div>`;
             document.getElementById('root').innerHTML = html;
         }
         
