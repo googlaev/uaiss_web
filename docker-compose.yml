@@ -4,10 +4,13 @@ services:
     container_name: uaiss_web_app
     ports:
       - "8000:8000"
+    environment:
+      - TZ=Europe/Moscow
     volumes:
       - ./exams.db:/app/exams.db
       - ./config.json:/app/config.json
       - ./serviceAccountKey.json:/app/serviceAccountKey.json
+      - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
     network_mode: bridge
     dns:
