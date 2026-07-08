@@ -11,6 +11,8 @@ services:
       - ./config.json:/app/config.json
       - ./serviceAccountKey.json:/app/serviceAccountKey.json
       - /etc/localtime:/etc/localtime:ro
+    cap_add:
+      - SYS_TIME
     restart: unless-stopped
     network_mode: bridge
     dns:
