@@ -1047,64 +1047,55 @@
         function MyExamsView() {
             if (isLoading) return `<div class="loading">⏳ Загрузка экзаменов...</div>`;
             const sortedExams = getSortedExams();
-            
+
             return `
                 <div class="content">
                     <div class="card-header">
                         <div class="card-title">📋 Мои экзамены</div>
                         <button class="btn btn-outline" onclick="window.changeView('add-exam')">+ Добавить</button>
                     </div>
-                    
+
                     <div class="sort-buttons">
-                        <button class="sort-btn ${examSortType === 'date_asc' ? 'active' : ''}" onclick="window.setExamSort('date_asc')">📅 Старые сначала</button>
-                        <button class="sort-btn ${examSortType === 'date_desc' ? 'active' : ''}" onclick="window.setExamSort('date_desc')">📅 Новые сначала</button>
+                        <button class="sort-btn ${examSortType === 'date_asc' ? 'active' : ''}" onclick="window.setExamSort('date_asc')">📅 Старые</button>
+                        <button class="sort-btn ${examSortType === 'date_desc' ? 'active' : ''}" onclick="window.setExamSort('date_desc')">📅 Новые</button>
                         <button class="sort-btn ${examSortType === 'days_left_asc' ? 'active' : ''}" onclick="window.setExamSort('days_left_asc')">⚠️ Истекают</button>
                     </div>
-                    
+
                     ${sortedExams.length > 0 ? sortedExams.map(exam => {
                         let badgeClass = 'badge-active';
-                        let badgeText = '✅ Действующий';
-                        let cardBorderStyle = '';
-                        let daysLeft = exam.days_left;
-                        
+                        let badgeText = '✅';
+                        let borderColor = 'transparent';
+                        const daysLeft = exam.days_left;
+
                         if (exam.status === 'Просрочен') {
-                            badgeClass = 'badge-expired';
-                            badgeText = '❌ Просрочен';
-                            cardBorderStyle = 'border-left: 4px solid var(--danger);';
+                            badgeClass = 'badge-expired'; badgeText = '❌ Просрочен'; borderColor = 'var(--danger)';
                         } else if (exam.status === 'Истекает') {
                             if (daysLeft <= 7) {
-                                badgeClass = 'badge-expired';
-                                badgeText = `🔴 Истекает через ${daysLeft} дн.`;
-                                cardBorderStyle = 'border-left: 4px solid var(--danger); background: rgba(239, 68, 68, 0.05);';
+                                badgeClass = 'badge-expired'; badgeText = `🔴 ${daysLeft}дн`; borderColor = 'var(--danger)';
                             } else {
-                                badgeClass = 'badge-expiring';
-                                badgeText = `⚠️ Истекает через ${daysLeft} дн.`;
-                                cardBorderStyle = 'border-left: 4px solid var(--warning);';
+                                badgeClass = 'badge-expiring'; badgeText = `⚠️ ${daysLeft}дн`; borderColor = 'var(--warning)';
                             }
                         }
-                        
-                        return `
-                            <div class="card" style="${cardBorderStyle}">
-                                <div class="exam-card">
-                                    <div class="exam-icon">${getExamTypeEmoji(exam.type)}</div>
-                                    <div class="exam-info">
-                                        <div class="exam-name">${exam.type}</div>
-                                        <div class="exam-date">Сдан: ${exam.date}</div>
-                                        <div class="exam-date">Действует до: ${exam.expires_at}</div>
-                                        <div class="exam-date ${daysLeft <= 7 && exam.status !== 'Просрочен' ? 'danger' : ''}" style="${daysLeft <= 7 && exam.status !== 'Просрочен' ? 'color: var(--danger); font-weight: bold;' : ''}">
-                                            Осталось: ${daysLeft} дней
-                                        </div>
+
+                        return `<div class="card" style="padding:10px 12px;margin-bottom:8px;border-left:3px solid ${borderColor};">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:20px;flex-shrink:0;">${getExamTypeEmoji(exam.type)}</span>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+                                        <span style="font-weight:600;font-size:13px;line-height:1.2;">${exam.type}</span>
+                                        <span class="badge ${badgeClass}" style="font-size:10px;padding:2px 6px;">${badgeText}</span>
                                     </div>
-                                    <div class="exam-actions">
-                                        <span class="badge ${badgeClass}" style="margin-bottom: 8px;">${badgeText}</span>
-                                        <div style="display: flex; gap: 8px;">
-                                            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="window.openEditExamModal(${exam.id}, '${exam.type}', '${exam.date}')">✏️ Изменить</button>
-                                            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px; color: var(--danger);" onclick="window.deleteExam(${exam.id}, '${exam.type}')">🗑️ Удалить</button>
-                                        </div>
-                                    </div>
+                                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">до ${exam.expires_at}</div>
+                                </div>
+                                <div style="font-size:11px;color:var(--text-secondary);text-align:right;flex-shrink:0;line-height:1.4;">
+                                    <div>${exam.date}</div>
+                                </div>
+                                <div style="display:flex;gap:4px;flex-shrink:0;">
+                                    <button class="btn btn-outline" style="padding:4px 8px;font-size:13px;border-radius:8px;" onclick="window.openEditExamModal(${exam.id},'${exam.type}','${exam.date}')">✏️</button>
+                                    <button class="btn btn-outline" style="padding:4px 8px;font-size:13px;border-radius:8px;color:var(--danger);" onclick="window.deleteExam(${exam.id},'${exam.type}')">🗑️</button>
                                 </div>
                             </div>
-                        `;
+                        </div>`;
                     }).join('') : `<div class="empty-state"><p>📭 Экзамены не найдены</p><button class="btn btn-primary" onclick="window.changeView('add-exam')">Добавить первый экзамен</button></div>`}
                 </div>
             `;
@@ -1167,15 +1158,15 @@
                         <div class="card-title">📋 История статусов</div>
                     </div>
                     ${sortedStatuses.length > 0 ? sortedStatuses.map(status => `
-                        <div class="card">
-                            <div class="status-card">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600;">${status.status}</div>
-                                    <div style="font-size: 12px; color: var(--text-secondary);">${status.start_date} — ${status.end_date || 'По сей день'}</div>
+                        <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-weight:600;font-size:13px;">${status.status}</div>
+                                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${status.start_date} — ${status.end_date || 'По сей день'}</div>
                                 </div>
-                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                                    <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px;" onclick="window.editStatusDates(${status.id}, '${status.status}', '${status.start_date}', '${status.end_date || ''}')">✏️ Изменить</button>
-                                    <button class="btn btn-outline" style="padding: 4px 12px; font-size: 12px; color: var(--danger);" onclick="window.deleteStatusWithConfirm(${status.id})">🗑️ Удалить</button>
+                                <div style="display:flex;gap:4px;flex-shrink:0;">
+                                    <button class="btn btn-outline" style="padding:4px 8px;font-size:13px;border-radius:8px;" onclick="window.editStatusDates(${status.id},'${status.status}','${status.start_date}','${status.end_date || ''}')">✏️</button>
+                                    <button class="btn btn-outline" style="padding:4px 8px;font-size:13px;border-radius:8px;color:var(--danger);" onclick="window.deleteStatusWithConfirm(${status.id})">🗑️</button>
                                 </div>
                             </div>
                         </div>
@@ -1246,94 +1237,58 @@
         function ManagementView() {
             if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
             const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0, employees: [] };
-            let filteredEmployees = stats.employees || [];
-            if (statusFilter !== 'all' && statusFilter !== 'working') filteredEmployees = filteredEmployees.filter(emp => emp.status_type === statusFilter);
-            else if (statusFilter === 'working') filteredEmployees = filteredEmployees.filter(emp => emp.status_type === 'working');
-            
+            const allEmployees = stats.employees || [];
+
+            const groups = [
+                { id: 'working',  icon: '🟢', label: 'На рабочем месте', color: 'var(--working)',        bg: 'rgba(16,185,129,0.08)'  },
+                { id: 'sick',     icon: '🤒', label: 'Больничный',        color: 'var(--sick)',           bg: 'rgba(239,68,68,0.08)'   },
+                { id: 'trip',     icon: '✈️', label: 'Командировка',      color: 'var(--business-trip)',  bg: 'rgba(139,92,246,0.08)'  },
+                { id: 'vacation', icon: '🏖️', label: 'Отпуск',            color: 'var(--vacation)',       bg: 'rgba(14,165,233,0.08)'  }
+            ];
+
             return `
                 <div class="content">
-                    <div class="card-header" style="margin-bottom: 16px; flex-wrap: wrap;">
+                    <div class="card-header" style="margin-bottom:12px;">
                         <div class="card-title">📊 Управление персоналом</div>
-                        ${currentUser.role === 'admin' ? '<span class="admin-badge" style="background: linear-gradient(135deg, var(--accent), #818CF8); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; color: white;">👑 Администратор</span>' : '<span class="admin-badge" style="background:var(--text-secondary); padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; color: white;">👁️ Только просмотр</span>'}
+                        ${currentUser.role === 'admin' ? '<span style="background:linear-gradient(135deg,var(--accent),#818CF8);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;color:white;">👑 Администратор</span>' : ''}
                     </div>
-                    
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">📈 Статусы сотрудников</div>
+
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">
+                        <div class="stat-card" style="padding:10px 6px;text-align:center;">
+                            <div style="font-size:18px;font-weight:700;color:var(--working);">${stats.working||0}</div>
+                            <div style="font-size:10px;color:var(--text-secondary);">🟢 Работают</div>
                         </div>
-                        <div class="status-stats-grid" style="margin-bottom: 16px; flex-wrap: wrap;">
-                            <div class="status-stat-item ${statusFilter === 'all' ? 'active' : ''}" onclick="window.setStatusFilter('all')">
-                                <div class="status-stat-emoji">👥</div>
-                                <div class="status-stat-count">${stats.total || 0}</div>
-                                <div class="status-stat-label">Всего</div>
-                            </div>
-                            <div class="status-stat-item ${statusFilter === 'working' ? 'active' : ''}" onclick="window.setStatusFilter('working')">
-                                <div class="status-stat-emoji">🟢</div>
-                                <div class="status-stat-count working-color">${stats.working || 0}</div>
-                                <div class="status-stat-label">Работают</div>
-                            </div>
-                            <div class="status-stat-item ${statusFilter === 'sick' ? 'active' : ''}" onclick="window.setStatusFilter('sick')">
-                                <div class="status-stat-emoji">🤒</div>
-                                <div class="status-stat-count sick-color">${stats.sick || 0}</div>
-                                <div class="status-stat-label">Больничный</div>
-                            </div>
-                            <div class="status-stat-item ${statusFilter === 'trip' ? 'active' : ''}" onclick="window.setStatusFilter('trip')">
-                                <div class="status-stat-emoji">✈️</div>
-                                <div class="status-stat-count trip-color">${stats.trip || 0}</div>
-                                <div class="status-stat-label">Командировка</div>
-                            </div>
-                            <div class="status-stat-item ${statusFilter === 'vacation' ? 'active' : ''}" onclick="window.setStatusFilter('vacation')">
-                                <div class="status-stat-emoji">🏖️</div>
-                                <div class="status-stat-count vacation-color">${stats.vacation || 0}</div>
-                                <div class="status-stat-label">Отпуск</div>
-                            </div>
+                        <div class="stat-card" style="padding:10px 6px;text-align:center;">
+                            <div style="font-size:18px;font-weight:700;color:var(--sick);">${stats.sick||0}</div>
+                            <div style="font-size:10px;color:var(--text-secondary);">🤒 Больничный</div>
+                        </div>
+                        <div class="stat-card" style="padding:10px 6px;text-align:center;">
+                            <div style="font-size:18px;font-weight:700;color:var(--business-trip);">${stats.trip||0}</div>
+                            <div style="font-size:10px;color:var(--text-secondary);">✈️ Командировка</div>
+                        </div>
+                        <div class="stat-card" style="padding:10px 6px;text-align:center;">
+                            <div style="font-size:18px;font-weight:700;color:var(--vacation);">${stats.vacation||0}</div>
+                            <div style="font-size:10px;color:var(--text-secondary);">🏖️ Отпуск</div>
                         </div>
                     </div>
-                    
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">👥 Список сотрудников</div>
-                        </div>
-                        ${filteredEmployees.map(emp => {
-                            let statusColor = 'var(--working)';
-                            let bgColor = 'rgba(16, 185, 129, 0.1)';
-                            let statusText = emp.status_text || '🟢 На рабочем месте';
-                            let periodHtml = '';
-                            
-                            if (emp.status_type === 'sick') {
-                                statusColor = 'var(--sick)';
-                                bgColor = 'rgba(239, 68, 68, 0.1)';
-                            } else if (emp.status_type === 'trip') {
-                                statusColor = 'var(--business-trip)';
-                                bgColor = 'rgba(139, 92, 246, 0.1)';
-                            } else if (emp.status_type === 'vacation') {
-                                statusColor = 'var(--vacation)';
-                                bgColor = 'rgba(14, 165, 233, 0.1)';
-                            }
-                            
-                            if (emp.period && emp.period !== '') {
-                                periodHtml = `<div class="employee-period">📅 ${emp.period}</div>`;
-                            } else if (emp.start_date && emp.start_date !== '') {
-                                if (emp.end_date && emp.end_date !== '') {
-                                    periodHtml = `<div class="employee-period">📅 ${emp.start_date} — ${emp.end_date}</div>`;
-                                } else if (emp.start_date) {
-                                    periodHtml = `<div class="employee-period">📅 с ${emp.start_date}</div>`;
-                                }
-                            }
-                            
-                            return `
-                                <div class="employee-list-item">
-                                    <div class="employee-info">
-                                        <div class="employee-name">${emp.name}</div>
-                                        ${periodHtml}
-                                    </div>
-                                    <div class="status-badge" style="background: ${bgColor}; color: ${statusColor}; padding: 6px 12px; border-radius: 20px; font-size: 12px; white-space: nowrap;">
-                                        ${statusText}
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
+
+                    ${groups.map(g => {
+                        const emps = allEmployees.filter(e => e.status_type === g.id);
+                        if (emps.length === 0) return '';
+                        return `<div style="margin-bottom:12px;">
+                            <div style="display:flex;align-items:center;gap:8px;padding:0 2px;margin-bottom:6px;">
+                                <span style="font-size:15px;">${g.icon}</span>
+                                <span style="font-weight:600;font-size:13px;color:${g.color};">${g.label}</span>
+                                <span style="background:${g.bg};color:${g.color};padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;">${emps.length}</span>
+                            </div>
+                            <div class="card" style="padding:0;overflow:hidden;">
+                                ${emps.map((emp, idx) => `<div style="padding:9px 14px;${idx < emps.length-1 ? 'border-bottom:1px solid var(--border);' : ''}display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                                    <div style="font-weight:500;font-size:13px;">${emp.name}</div>
+                                    ${emp.period ? `<div style="font-size:11px;color:var(--text-secondary);text-align:right;">${emp.period}</div>` : ''}
+                                </div>`).join('')}
+                            </div>
+                        </div>`;
+                    }).join('')}
                 </div>
             `;
         }
