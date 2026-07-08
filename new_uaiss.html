@@ -705,9 +705,13 @@
                             <label class="form-label">📚 Тип экзамена</label>
                             <input type="text" class="form-input" value="${editingExamName}" disabled style="background: var(--bg-primary); opacity: 0.7;">
                         </div>
+                        <div style="background:var(--bg-primary);border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:13px;">
+                            <span style="color:var(--text-secondary);">Старая дата: </span>
+                            <strong style="color:var(--text-primary);">${currentDate}</strong>
+                        </div>
                         <div class="form-group">
-                            <label class="form-label">📅 Дата сдачи</label>
-                            <input type="date" class="form-input" id="editExamDate" value="${formattedDate}" max="${new Date().toISOString().split('T')[0]}">
+                            <label class="form-label">📅 Новая дата сдачи</label>
+                            <input type="date" class="form-input" id="editExamDate" value="${formattedDate}" max="${new Date().toISOString().split('T')[0]}" style="font-size:16px;">
                             <small style="font-size: 11px; color: var(--text-secondary);">Нельзя выбрать дату из будущего</small>
                         </div>
                         <div style="display: flex; gap: 12px; margin-top: 20px;">
@@ -1065,16 +1069,27 @@
                         let badgeClass = 'badge-active';
                         let badgeText = '✅';
                         let borderColor = 'transparent';
-                        const daysLeft = exam.days_left;
 
-                        if (exam.status === 'Просрочен') {
-                            badgeClass = 'badge-expired'; badgeText = '❌ Просрочен'; borderColor = 'var(--danger)';
-                        } else if (exam.status === 'Истекает') {
-                            if (daysLeft <= 7) {
-                                badgeClass = 'badge-expired'; badgeText = `🔴 ${daysLeft}дн`; borderColor = 'var(--danger)';
-                            } else {
-                                badgeClass = 'badge-expiring'; badgeText = `⚠️ ${daysLeft}дн`; borderColor = 'var(--warning)';
-                            }
+                        const expiresDate = (() => {
+                            if (!exam.expires_at) return null;
+                            const p = exam.expires_at.split('.');
+                            if (p.length !== 3) return null;
+                            const d = new Date(`${p[2]}-${p[1]}-${p[0]}`);
+                            d.setHours(0,0,0,0); return d;
+                        })();
+                        const todayMid = (() => { const d = new Date(); d.setHours(0,0,0,0); return d; })();
+                        const daysToExp = expiresDate ? Math.round((expiresDate - todayMid) / 86400000) : null;
+
+                        if (daysToExp !== null && daysToExp < 0) {
+                            badgeClass = 'badge-expired'; badgeText = `❌ ${Math.abs(daysToExp)} дн. назад`; borderColor = 'var(--danger)';
+                        } else if (daysToExp !== null && daysToExp === 0) {
+                            badgeClass = 'badge-expired'; badgeText = `🔴 сегодня истекает`; borderColor = 'var(--danger)';
+                        } else if (daysToExp !== null && daysToExp <= 7) {
+                            badgeClass = 'badge-expired'; badgeText = `🔴 ${daysToExp} дн.`; borderColor = 'var(--danger)';
+                        } else if (daysToExp !== null && daysToExp <= 30) {
+                            badgeClass = 'badge-expiring'; badgeText = `⚠️ ${daysToExp} дн.`; borderColor = 'var(--warning)';
+                        } else if (daysToExp !== null) {
+                            badgeClass = 'badge-active'; badgeText = `✅ ${daysToExp} дн.`;
                         }
 
                         return `<div class="card" style="padding:10px 12px;margin-bottom:8px;border-left:3px solid ${borderColor};">
@@ -1105,8 +1120,10 @@
             return `
                 <div class="content">
                     <div class="card-header"><button class="btn btn-outline" onclick="window.changeView('exams')">← Назад</button><div class="card-title">Добавить экзамен</div></div>
-                    <div class="form-group"><div class="form-label">Шаг 1: Выберите тип экзамена</div><div class="exam-types-grid">${examTypes.map(type => `<div class="exam-type-btn ${selectedExamType === type.id ? 'selected' : ''}" onclick="window.selectExamType(${type.id})"><div style="font-size:32px;">${type.emoji}</div><div><strong>${type.name}</strong></div><div style="font-size:11px;">${type.duration} мес.</div></div>`).join('')}</div></div>
-                    ${selectedExamType ? `<div class="form-group"><div class="form-label">Шаг 2: Выберите дату сдачи</div><input type="date" class="form-input" id="examDate" max="${new Date().toISOString().split('T')[0]}"></div><button class="btn btn-primary" onclick="window.saveExam()">Сохранить</button>` : ''}
+                    <div class="form-group">
+                        <div class="form-label">Выберите тип экзамена</div>
+                        <div class="exam-types-grid">${examTypes.map(type => `<div class="exam-type-btn" onclick="window.selectExamType(${type.id})"><div style="font-size:32px;">${type.emoji}</div><div><strong>${type.name}</strong></div><div style="font-size:11px;">${type.duration} мес.</div></div>`).join('')}</div>
+                    </div>
                 </div>
             `;
         }
@@ -1472,7 +1489,52 @@
         window.changeView = (view) => { currentView = view; selectedExamType = null; modalType = null; adminModalType = null; render(); if (view === 'admin') loadAdminData(); };
         window.setStatusFilter = (filter) => { statusFilter = filter; if (currentView !== 'management') currentView = 'management'; render(); };
         window.setStatusFilterAndGo = (filter) => { statusFilter = filter; currentView = 'management'; render(); };
-        window.selectExamType = (id) => { selectedExamType = id; render(); };
+        window.selectExamType = (id) => {
+            selectedExamType = id;
+            const type = examTypes.find(t => t.id === id);
+            if (!type) return;
+            const todayStr = new Date().toISOString().split('T')[0];
+            const existing = document.getElementById('addExamModal');
+            if (existing) existing.remove();
+            const div = document.createElement('div');
+            div.id = 'addExamModal';
+            div.innerHTML = `
+                <div class="modal-overlay" onclick="window.closeAddExamModal()">
+                    <div class="modal-content" onclick="event.stopPropagation()">
+                        <div class="card-header" style="margin-bottom:12px;">
+                            <div class="card-title" style="font-size:18px;">${type.emoji} ${type.name}</div>
+                            <button class="btn btn-outline" onclick="window.closeAddExamModal()" style="padding:4px 12px;border-radius:40px;min-height:unset;">✕</button>
+                        </div>
+                        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;">Срок действия: ${type.duration} мес.</div>
+                        <div class="form-group">
+                            <label class="form-label">📅 Дата сдачи экзамена</label>
+                            <input type="date" class="form-input" id="addExamDateModal" max="${todayStr}" style="font-size:16px;">
+                        </div>
+                        <div style="display:flex;gap:12px;margin-top:20px;">
+                            <button class="btn btn-primary" style="flex:1;" onclick="window.saveExamFromModal()">➕ Добавить</button>
+                            <button class="btn btn-outline" style="flex:1;" onclick="window.closeAddExamModal()">Отмена</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(div);
+            setTimeout(() => { const inp = document.getElementById('addExamDateModal'); if (inp) { inp.focus(); inp.showPicker?.(); } }, 150);
+        };
+
+        window.closeAddExamModal = () => {
+            const modal = document.getElementById('addExamModal');
+            if (modal) modal.remove();
+            selectedExamType = null;
+        };
+
+        window.saveExamFromModal = async () => {
+            const dateInput = document.getElementById('addExamDateModal');
+            if (!dateInput || !dateInput.value) { showToast('❌ Выберите дату'); return; }
+            if (new Date(dateInput.value) > new Date()) { showToast('❌ Нельзя выбрать дату из будущего'); return; }
+            const id = selectedExamType;
+            window.closeAddExamModal();
+            await addExam(id, dateInput.value);
+        };
+
         window.saveExam = () => { const date = document.getElementById('examDate')?.value; if (!selectedExamType || !date) { showToast("❌ Выберите тип экзамена и дату"); return; } addExam(selectedExamType, date); selectedExamType = null; };
         
         window.openStatusModal = (type) => { 
