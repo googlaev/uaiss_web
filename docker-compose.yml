@@ -7,6 +7,7 @@ services:
     volumes:
       - ./exams.db:/app/exams.db
       - ./config.json:/app/config.json
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json
     restart: unless-stopped
     network_mode: bridge
     dns:
