@@ -84,6 +84,23 @@ try:
 except Exception as e:
     print(f"⚠️ Firebase не инициализирован: {e}")
 
+# Создаём таблицу fcm_tokens при загрузке модуля — до любых роутеров
+try:
+    _conn = sqlite3.connect(CONFIG['database']['path'])
+    _conn.execute("""
+        CREATE TABLE IF NOT EXISTS fcm_tokens (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    TEXT NOT NULL,
+            token      TEXT NOT NULL UNIQUE,
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    _conn.commit()
+    _conn.close()
+    print("✅ Таблица fcm_tokens готова")
+except Exception as _e:
+    print(f"❌ Ошибка создания fcm_tokens: {_e}")
+
 SECRET_KEY = CONFIG['auth'].get('jwt_secret_key', secrets.token_hex(32))
 ALGORITHM = "HS256"
 
