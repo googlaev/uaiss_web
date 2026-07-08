@@ -208,6 +208,17 @@
             .status-stat-emoji { font-size: 18px; }
             .status-stat-count { font-size: 16px; }
         }
+        .admin-tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 2px; }
+        .admin-tab { padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-surface); cursor: pointer; font-size: 12px; font-weight: 500; white-space: nowrap; color: var(--text-secondary); transition: all 0.2s; }
+        .admin-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .btn-danger { background: rgba(220,38,38,0.1); color: var(--danger); border: 1px solid rgba(220,38,38,0.2); }
+        .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 8px; }
+        .admin-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+        .admin-row:last-child { border-bottom: none; }
+        .admin-cell { flex: 1; font-size: 13px; min-width: 80px; }
+        .admin-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .badge-admin { background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(99,102,241,0.15)); color: #8B5CF6; }
+        .badge-employee { background: rgba(16,185,129,0.1); color: var(--success); }
     </style>
 </head>
 <body>
@@ -236,6 +247,15 @@
         let editingExamDate = null;
         
         let deleteCallback = null;
+
+        let adminTab = 'users';
+        let adminUsers = [];
+        let adminExams = [];
+        let adminExamTypes = [];
+        let adminStatuses = [];
+        let adminModalType = null;
+        let adminEditData = null;
+        let adminIsLoading = false;
 
         function setDarkMode(enabled) {
             isDarkMode = enabled;
@@ -312,6 +332,29 @@
             }
             isLoading = false;
             render();
+        }
+
+        async function loadAdminData() {
+            adminIsLoading = true; render();
+            try {
+                if (adminTab === 'users') {
+                    const r = await apiRequest('/admin/users');
+                    if (r.ok) adminUsers = await r.json();
+                } else if (adminTab === 'exams') {
+                    const [r1, r2] = await Promise.all([apiRequest('/admin/exams'), apiRequest('/admin/users')]);
+                    if (r1.ok) adminExams = await r1.json();
+                    if (r2.ok) adminUsers = await r2.json();
+                    if (adminExamTypes.length === 0) { const r3 = await apiRequest('/exam-types'); if (r3.ok) adminExamTypes = await r3.json(); }
+                } else if (adminTab === 'exam-types') {
+                    const r = await apiRequest('/exam-types');
+                    if (r.ok) adminExamTypes = await r.json();
+                } else if (adminTab === 'statuses') {
+                    const [r1, r2] = await Promise.all([apiRequest('/admin/statuses'), apiRequest('/admin/users')]);
+                    if (r1.ok) adminStatuses = await r1.json();
+                    if (r2.ok) adminUsers = await r2.json();
+                }
+            } catch(e) { showToast('❌ Ошибка загрузки данных'); }
+            adminIsLoading = false; render();
         }
 
         // Форматирование имени: фамилия + инициалы
@@ -1141,6 +1184,65 @@
             `;
         }
 
+        function AdminPanelView() {
+            if (currentUser?.role !== 'admin') return `<div class="content"><div class="card" style="text-align:center;padding:40px;"><div style="font-size:48px;">🚫</div><div style="font-size:18px;font-weight:600;margin-top:16px;">Доступ запрещён</div></div></div>`;
+            if (adminIsLoading) return `<div class="loading">⏳ Загрузка...</div>`;
+
+            const tabs = [{id:'users',icon:'👥',label:'Пользователи'},{id:'exams',icon:'📋',label:'Экзамены'},{id:'exam-types',icon:'📚',label:'Типы'},{id:'statuses',icon:'🏷️',label:'Статусы'}];
+            const addLabels = {users:'Пользователя',exams:'Экзамен','exam-types':'Тип экзамена',statuses:'Статус'};
+
+            let rows = '';
+            if (adminTab === 'users') {
+                rows = adminUsers.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Нет пользователей</div>' :
+                    adminUsers.map((u,i) => `<div class="admin-row">
+                        <div class="admin-cell"><div style="font-weight:600;font-size:13px;">${u.full_name}</div><div style="font-size:11px;color:var(--text-secondary);">${u.login}</div></div>
+                        <div class="admin-cell"><span class="badge ${u.role==='admin'?'badge-admin':'badge-employee'}">${u.role==='admin'?'👑 Админ':'👤 Сотрудник'}</span></div>
+                        <div class="admin-cell" style="font-size:11px;color:var(--text-secondary);">${u.email||'—'}</div>
+                        <div class="admin-actions">
+                            <button class="btn btn-outline btn-sm" onclick="window.adminEdit('user',${i})">✏️</button>
+                            <button class="btn btn-danger btn-sm" onclick="window.adminDel('user',${u.user_id},'${u.full_name.replace(/'/g,"\\'")}')">🗑️</button>
+                        </div></div>`).join('');
+            } else if (adminTab === 'exams') {
+                rows = adminExams.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Нет экзаменов</div>' :
+                    adminExams.map((e,i) => `<div class="admin-row">
+                        <div class="admin-cell"><div style="font-weight:600;font-size:12px;">${e.user_name}</div><div style="font-size:11px;color:var(--text-secondary);">${e.name}</div></div>
+                        <div class="admin-cell"><div style="font-size:12px;">📅 ${e.date}</div><div style="font-size:11px;color:var(--text-secondary);">до ${e.expires_at}</div></div>
+                        <div class="admin-cell"><span class="badge ${e.status==='Просрочен'?'badge-expired':e.status==='Истекает'?'badge-expiring':'badge-active'}">${e.status}</span></div>
+                        <div class="admin-actions">
+                            <button class="btn btn-outline btn-sm" onclick="window.adminEdit('exam',${i})">✏️</button>
+                            <button class="btn btn-danger btn-sm" onclick="window.adminDel('exam',${e.id},'${e.name.replace(/'/g,"\\'")}')">🗑️</button>
+                        </div></div>`).join('');
+            } else if (adminTab === 'exam-types') {
+                rows = adminExamTypes.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Нет типов экзаменов</div>' :
+                    adminExamTypes.map((t,i) => `<div class="admin-row">
+                        <div class="admin-cell" style="font-size:24px;max-width:40px;">${t.emoji||'📚'}</div>
+                        <div class="admin-cell" style="font-weight:600;font-size:13px;">${t.name}</div>
+                        <div class="admin-cell"><span class="badge badge-active">${t.duration} мес.</span></div>
+                        <div class="admin-actions">
+                            <button class="btn btn-outline btn-sm" onclick="window.adminEdit('type',${i})">✏️</button>
+                            <button class="btn btn-danger btn-sm" onclick="window.adminDel('type',${t.id},'${t.name.replace(/'/g,"\\'")}')">🗑️</button>
+                        </div></div>`).join('');
+            } else if (adminTab === 'statuses') {
+                rows = adminStatuses.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--text-secondary);">Нет статусов</div>' :
+                    adminStatuses.map((s,i) => `<div class="admin-row">
+                        <div class="admin-cell"><div style="font-weight:600;font-size:12px;">${s.full_name}</div><div style="font-size:11px;color:var(--text-secondary);">${s.status}</div></div>
+                        <div class="admin-cell"><div style="font-size:12px;">📅 ${s.start_date}</div><div style="font-size:11px;color:var(--text-secondary);">${s.end_date?'→ '+s.end_date:'открыт'}</div></div>
+                        <div class="admin-actions">
+                            <button class="btn btn-outline btn-sm" onclick="window.adminEdit('status',${i})">✏️</button>
+                            <button class="btn btn-danger btn-sm" onclick="window.adminDel('status',${s.id},'')">🗑️</button>
+                        </div></div>`).join('');
+            }
+
+            return `<div class="content">
+                <div class="card-header" style="margin-bottom:16px;">
+                    <div class="card-title">⚙️ Панель администратора</div>
+                    <button class="btn btn-primary btn-sm" onclick="window.adminOpenAdd()">+ ${addLabels[adminTab]}</button>
+                </div>
+                <div class="admin-tabs">${tabs.map(t=>`<button class="admin-tab${adminTab===t.id?' active':''}" onclick="window.adminSetTab('${t.id}')">${t.icon} ${t.label}</button>`).join('')}</div>
+                <div class="card">${rows}</div>
+            </div>`;
+        }
+
         function ManagementView() {
             if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
             const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0, employees: [] };
@@ -1349,13 +1451,70 @@
             return '';
         };
 
+        window.renderAdminModal = () => {
+            if (!adminModalType) return '';
+            const isEdit = adminModalType.endsWith('-edit');
+            const d = adminEditData || {};
+            const closeBtn = `<button class="btn btn-outline" onclick="window.adminCloseModal()" style="padding:4px 12px;border-radius:40px;">✕</button>`;
+
+            if (adminModalType === 'user-add' || adminModalType === 'user-edit') {
+                return `<div class="modal-overlay" onclick="window.adminCloseModal()"><div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;margin:0 auto;">
+                    <div class="card-header" style="margin-bottom:16px;"><div class="card-title">${isEdit?'✏️ Редактировать':'➕ Добавить'} пользователя</div>${closeBtn}</div>
+                    <div class="form-group"><label class="form-label">Полное имя</label><input type="text" class="form-input" id="au_name" value="${d.full_name||''}" placeholder="Иванов Иван Иванович"></div>
+                    <div class="form-group"><label class="form-label">Логин</label><input type="text" class="form-input" id="au_login" value="${d.login||''}" placeholder="иванов"></div>
+                    <div class="form-group"><label class="form-label">Пароль${isEdit?' (пусто = без изменений)':''}</label><input type="password" class="form-input" id="au_pwd" placeholder="${isEdit?'Новый пароль (необязательно)':'Пароль'}"></div>
+                    <div class="form-group"><label class="form-label">Роль</label><select class="form-input" id="au_role"><option value="employee"${d.role!=='admin'?' selected':''}>👤 Сотрудник</option><option value="admin"${d.role==='admin'?' selected':''}>👑 Администратор</option></select></div>
+                    <div class="form-group"><label class="form-label">Email (необязательно)</label><input type="email" class="form-input" id="au_email" value="${d.email||''}" placeholder="email@example.com"></div>
+                    <div style="display:flex;gap:12px;margin-top:20px;"><button class="btn btn-primary" style="flex:1;" onclick="window.adminSaveUser(${isEdit?d.user_id:'null'})">💾 Сохранить</button><button class="btn btn-outline" style="flex:1;" onclick="window.adminCloseModal()">Отмена</button></div>
+                </div></div>`;
+            }
+            if (adminModalType === 'exam-add' || adminModalType === 'exam-edit') {
+                const userOpts = adminUsers.map(u=>`<option value="${u.user_id}"${d.user_id===u.user_id?' selected':''}>${u.full_name}</option>`).join('');
+                const typeOpts = adminExamTypes.map(t=>`<option value="${t.id}"${d.name===t.name?' selected':''}>${t.emoji||'📚'} ${t.name}</option>`).join('');
+                const dateVal = d.date ? d.date.split('.').reverse().join('-') : new Date().toISOString().split('T')[0];
+                return `<div class="modal-overlay" onclick="window.adminCloseModal()"><div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;margin:0 auto;">
+                    <div class="card-header" style="margin-bottom:16px;"><div class="card-title">${isEdit?'✏️ Редактировать':'➕ Добавить'} экзамен</div>${closeBtn}</div>
+                    ${!isEdit?`<div class="form-group"><label class="form-label">Сотрудник</label><select class="form-input" id="ae_user">${userOpts}</select></div>
+                    <div class="form-group"><label class="form-label">Тип экзамена</label><select class="form-input" id="ae_type">${typeOpts}</select></div>`
+                    :`<div class="form-group"><label class="form-label">Название</label><input type="text" class="form-input" id="ae_name" value="${d.name||''}"></div>
+                    <div class="form-group"><label class="form-label">Срок (мес.)</label><input type="number" class="form-input" id="ae_dur" value="${d.duration||12}" min="1" max="120"></div>`}
+                    <div class="form-group"><label class="form-label">Дата сдачи</label><input type="date" class="form-input" id="ae_date" value="${dateVal}"></div>
+                    <div style="display:flex;gap:12px;margin-top:20px;"><button class="btn btn-primary" style="flex:1;" onclick="window.adminSaveExam(${isEdit?d.id:'null'})">💾 Сохранить</button><button class="btn btn-outline" style="flex:1;" onclick="window.adminCloseModal()">Отмена</button></div>
+                </div></div>`;
+            }
+            if (adminModalType === 'type-add' || adminModalType === 'type-edit') {
+                return `<div class="modal-overlay" onclick="window.adminCloseModal()"><div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;margin:0 auto;">
+                    <div class="card-header" style="margin-bottom:16px;"><div class="card-title">${isEdit?'✏️ Редактировать':'➕ Добавить'} тип экзамена</div>${closeBtn}</div>
+                    <div class="form-group"><label class="form-label">Название</label><input type="text" class="form-input" id="at_name" value="${d.name||''}" placeholder="Промышленная безопасность"></div>
+                    <div class="form-group"><label class="form-label">Срок действия (мес.)</label><input type="number" class="form-input" id="at_dur" value="${d.duration||12}" min="1" max="120"></div>
+                    <div class="form-group"><label class="form-label">Эмодзи</label><input type="text" class="form-input" id="at_emoji" value="${d.emoji||'📚'}" placeholder="📚"></div>
+                    <div style="display:flex;gap:12px;margin-top:20px;"><button class="btn btn-primary" style="flex:1;" onclick="window.adminSaveType(${isEdit?d.id:'null'})">💾 Сохранить</button><button class="btn btn-outline" style="flex:1;" onclick="window.adminCloseModal()">Отмена</button></div>
+                </div></div>`;
+            }
+            if (adminModalType === 'status-add' || adminModalType === 'status-edit') {
+                const userOpts = adminUsers.map(u=>`<option value="${u.user_id}"${d.user_id===u.user_id?' selected':''}>${u.full_name}</option>`).join('');
+                const statOpts = ['🤒 Больничный','✈️ Командировка','🏖️ Отпуск','🟢 На рабочем месте'].map(s=>`<option value="${s}"${d.status===s?' selected':''}>${s}</option>`).join('');
+                const startVal = d.start_date ? d.start_date.split('.').reverse().join('-') : new Date().toISOString().split('T')[0];
+                const endVal = d.end_date ? d.end_date.split('.').reverse().join('-') : '';
+                return `<div class="modal-overlay" onclick="window.adminCloseModal()"><div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;margin:0 auto;">
+                    <div class="card-header" style="margin-bottom:16px;"><div class="card-title">${isEdit?'✏️ Редактировать':'➕ Добавить'} статус</div>${closeBtn}</div>
+                    ${!isEdit?`<div class="form-group"><label class="form-label">Сотрудник</label><select class="form-input" id="as_user">${userOpts}</select></div>`:''}
+                    <div class="form-group"><label class="form-label">Статус</label><select class="form-input" id="as_status">${statOpts}</select></div>
+                    <div class="form-group"><label class="form-label">Дата начала</label><input type="date" class="form-input" id="as_start" value="${startVal}"></div>
+                    <div class="form-group"><label class="form-label">Дата окончания (необязательно)</label><input type="date" class="form-input" id="as_end" value="${endVal}"></div>
+                    <div style="display:flex;gap:12px;margin-top:20px;"><button class="btn btn-primary" style="flex:1;" onclick="window.adminSaveStatus(${isEdit?d.id:'null'})">💾 Сохранить</button><button class="btn btn-outline" style="flex:1;" onclick="window.adminCloseModal()">Отмена</button></div>
+                </div></div>`;
+            }
+            return '';
+        };
+
         window.handleLogin = () => {
             const loginInput = document.getElementById('loginInput');
             const passwordInput = document.getElementById('passwordInput');
             if (loginInput && passwordInput) login(loginInput.value, passwordInput.value);
         };
 
-        window.changeView = (view) => { currentView = view; selectedExamType = null; modalType = null; render(); };
+        window.changeView = (view) => { currentView = view; selectedExamType = null; modalType = null; adminModalType = null; render(); if (view === 'admin') loadAdminData(); };
         window.setStatusFilter = (filter) => { statusFilter = filter; if (currentView !== 'management') currentView = 'management'; render(); };
         window.setStatusFilterAndGo = (filter) => { statusFilter = filter; currentView = 'management'; render(); };
         window.selectExamType = (id) => { selectedExamType = id; render(); };
@@ -1405,6 +1564,77 @@
         window.openProfileModal = () => { modalType = 'profile'; render(); };
         window.closeProfileModal = () => { modalType = null; render(); };
 
+        window.adminSetTab = (tab) => { adminTab = tab; loadAdminData(); };
+        window.adminCloseModal = () => { adminModalType = null; adminEditData = null; render(); };
+        window.adminOpenAdd = async () => {
+            adminEditData = null;
+            if (adminTab === 'users') adminModalType = 'user-add';
+            else if (adminTab === 'exams') { adminModalType = 'exam-add'; if (!adminUsers.length) { const r = await apiRequest('/admin/users'); if (r.ok) adminUsers = await r.json(); } if (!adminExamTypes.length) { const r = await apiRequest('/exam-types'); if (r.ok) adminExamTypes = await r.json(); } }
+            else if (adminTab === 'exam-types') adminModalType = 'type-add';
+            else if (adminTab === 'statuses') { adminModalType = 'status-add'; if (!adminUsers.length) { const r = await apiRequest('/admin/users'); if (r.ok) adminUsers = await r.json(); } }
+            render();
+        };
+        window.adminEdit = (type, idx) => {
+            if (type === 'user') { adminEditData = adminUsers[idx]; adminModalType = 'user-edit'; }
+            else if (type === 'exam') { adminEditData = adminExams[idx]; adminModalType = 'exam-edit'; }
+            else if (type === 'type') { adminEditData = adminExamTypes[idx]; adminModalType = 'type-edit'; }
+            else if (type === 'status') { adminEditData = adminStatuses[idx]; adminModalType = 'status-edit'; }
+            render();
+        };
+        window.adminDel = async (type, id, name) => {
+            const label = name ? `"${name}"` : 'эту запись';
+            if (!confirm(`Удалить ${label}?`)) return;
+            try {
+                const urls = { user: `/admin/users/${id}`, exam: `/admin/exams/${id}`, type: `/admin/exam-types/${id}`, status: `/admin/statuses/${id}` };
+                const r = await apiRequest(urls[type], { method: 'DELETE' });
+                const data = await r.json();
+                if (r.ok) { showToast('✅ ' + data.message); loadAdminData(); }
+                else showToast('❌ ' + (data.detail || 'Ошибка'));
+            } catch(e) { showToast('❌ Ошибка соединения'); }
+        };
+        window.adminSaveUser = async (userId) => {
+            const body = { full_name: document.getElementById('au_name')?.value?.trim(), login: document.getElementById('au_login')?.value?.trim(), role: document.getElementById('au_role')?.value, email: document.getElementById('au_email')?.value?.trim() };
+            const pwd = document.getElementById('au_pwd')?.value?.trim();
+            if (pwd) body.password = pwd;
+            try {
+                const r = await apiRequest(userId ? `/admin/users/${userId}` : '/admin/users', { method: userId ? 'PUT' : 'POST', body: JSON.stringify(body) });
+                const data = await r.json();
+                if (r.ok) { showToast('✅ ' + data.message); window.adminCloseModal(); loadAdminData(); }
+                else showToast('❌ ' + (data.detail || 'Ошибка'));
+            } catch(e) { showToast('❌ Ошибка соединения'); }
+        };
+        window.adminSaveExam = async (examId) => {
+            let body = {};
+            if (examId) { body = { date: document.getElementById('ae_date')?.value, name: document.getElementById('ae_name')?.value?.trim(), duration: parseInt(document.getElementById('ae_dur')?.value) }; }
+            else { body = { user_id: parseInt(document.getElementById('ae_user')?.value), exam_type_id: parseInt(document.getElementById('ae_type')?.value), date: document.getElementById('ae_date')?.value }; }
+            try {
+                const r = await apiRequest(examId ? `/admin/exams/${examId}` : '/admin/exams', { method: examId ? 'PUT' : 'POST', body: JSON.stringify(body) });
+                const data = await r.json();
+                if (r.ok) { showToast('✅ ' + data.message); window.adminCloseModal(); loadAdminData(); }
+                else showToast('❌ ' + (data.detail || 'Ошибка'));
+            } catch(e) { showToast('❌ Ошибка соединения'); }
+        };
+        window.adminSaveType = async (typeId) => {
+            const body = { name: document.getElementById('at_name')?.value?.trim(), duration: parseInt(document.getElementById('at_dur')?.value), emoji: document.getElementById('at_emoji')?.value?.trim() || '📚' };
+            try {
+                const r = await apiRequest(typeId ? `/admin/exam-types/${typeId}` : '/admin/exam-types', { method: typeId ? 'PUT' : 'POST', body: JSON.stringify(body) });
+                const data = await r.json();
+                if (r.ok) { showToast('✅ ' + data.message); window.adminCloseModal(); loadAdminData(); }
+                else showToast('❌ ' + (data.detail || 'Ошибка'));
+            } catch(e) { showToast('❌ Ошибка соединения'); }
+        };
+        window.adminSaveStatus = async (statusId) => {
+            const fmtDate = id => { const v = document.getElementById(id)?.value; return v ? v.split('-').reverse().join('.') : null; };
+            const body = { status: document.getElementById('as_status')?.value, start_date: fmtDate('as_start'), end_date: fmtDate('as_end') };
+            if (!statusId) body.user_id = parseInt(document.getElementById('as_user')?.value);
+            try {
+                const r = await apiRequest(statusId ? `/admin/statuses/${statusId}` : '/admin/statuses', { method: statusId ? 'PUT' : 'POST', body: JSON.stringify(body) });
+                const data = await r.json();
+                if (r.ok) { showToast('✅ ' + data.message); window.adminCloseModal(); loadAdminData(); }
+                else showToast('❌ ' + (data.detail || 'Ошибка'));
+            } catch(e) { showToast('❌ Ошибка соединения'); }
+        };
+
         window.saveProfileChanges = async () => {
             const emailInput = document.getElementById('profileEmail');
             const oldPasswordInput = document.getElementById('oldPassword');
@@ -1447,10 +1677,11 @@
                 case 'add-exam': mainContent = AddExamView(); break;
                 case 'status': mainContent = StatusView(); break;
                 case 'management': mainContent = ManagementView(); break;
+                case 'admin': mainContent = AdminPanelView(); break;
                 default: mainContent = HomeView();
             }
-            const navItems = [{ id: 'home', icon: '🏠', label: 'Главная' }, { id: 'exams', icon: '📋', label: 'Экзамены' }, { id: 'status', icon: '👤', label: 'Статус' }, { id: 'management', icon: '📊', label: 'Управление' }];
-            const html = `<div class="app"><div class="header"><div class="header-content"><div class="logo">UAISS Web</div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${formatShortName(currentUser?.name || '')}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="logout-btn" onclick="window.logout()">Выйти</button><button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}</div>`;
+            const navItems = [{ id: 'home', icon: '🏠', label: 'Главная' }, { id: 'exams', icon: '📋', label: 'Экзамены' }, { id: 'status', icon: '👤', label: 'Статус' }, { id: 'management', icon: '📊', label: 'Управление' }, ...(currentUser?.role === 'admin' ? [{ id: 'admin', icon: '⚙️', label: 'Админ' }] : [])];
+            const html = `<div class="app"><div class="header"><div class="header-content"><div class="logo">UAISS Web</div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${formatShortName(currentUser?.name || '')}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="logout-btn" onclick="window.logout()">Выйти</button><button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}${window.renderAdminModal()}</div>`;
             document.getElementById('root').innerHTML = html;
         }
         

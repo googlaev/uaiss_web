@@ -1186,6 +1186,316 @@ async def get_current_status_stats(current_user=Depends(get_current_user)):
     conn.close()
     return stats
 
+def require_admin(current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Доступ только для администраторов")
+    return current_user
+
+# ── Admin: Users ──────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/admin/users")
+async def admin_get_users(current_user=Depends(require_admin)):
+    conn = get_db()
+    try:
+        cursor = conn.execute("SELECT user_id, full_name, login, role, email FROM users ORDER BY full_name")
+        return [dict(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+@app.post("/api/v1/admin/users")
+async def admin_create_user(request: Request, current_user=Depends(require_admin)):
+    data = await request.json()
+    full_name = data.get("full_name", "").strip()
+    login = data.get("login", "").strip()
+    password = data.get("password", "").strip()
+    role = data.get("role", "employee")
+    email = data.get("email", "").strip() or None
+    if not full_name or not login or not password:
+        raise HTTPException(status_code=400, detail="Имя, логин и пароль обязательны")
+    if role not in ("employee", "admin"):
+        raise HTTPException(status_code=400, detail="Роль: employee или admin")
+    conn = get_db()
+    try:
+        if conn.execute("SELECT 1 FROM users WHERE login = ?", (login,)).fetchone():
+            raise HTTPException(status_code=409, detail="Логин уже занят")
+        conn.execute("INSERT INTO users (full_name, login, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
+                     (full_name, login, hash_password(password), role, email))
+        conn.commit()
+        return {"message": "Пользователь создан", "success": True}
+    finally:
+        conn.close()
+
+@app.put("/api/v1/admin/users/{user_id}")
+async def admin_update_user(user_id: int, request: Request, current_user=Depends(require_admin)):
+    data = await request.json()
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        fields, values = [], []
+        if data.get("full_name", "").strip():
+            fields.append("full_name = ?"); values.append(data["full_name"].strip())
+        if data.get("login", "").strip():
+            if conn.execute("SELECT 1 FROM users WHERE login = ? AND user_id != ?", (data["login"].strip(), user_id)).fetchone():
+                raise HTTPException(status_code=409, detail="Логин уже занят")
+            fields.append("login = ?"); values.append(data["login"].strip())
+        if data.get("role") in ("employee", "admin"):
+            fields.append("role = ?"); values.append(data["role"])
+        if "email" in data:
+            fields.append("email = ?"); values.append(data["email"].strip() or None)
+        if data.get("password", "").strip():
+            fields.append("password_hash = ?"); values.append(hash_password(data["password"].strip()))
+        if not fields:
+            raise HTTPException(status_code=400, detail="Нет данных для обновления")
+        values.append(user_id)
+        conn.execute(f"UPDATE users SET {', '.join(fields)} WHERE user_id = ?", values)
+        conn.commit()
+        return {"message": "Пользователь обновлён", "success": True}
+    finally:
+        conn.close()
+
+@app.delete("/api/v1/admin/users/{user_id}")
+async def admin_delete_user(user_id: int, current_user=Depends(require_admin)):
+    if user_id == current_user["user_id"]:
+        raise HTTPException(status_code=400, detail="Нельзя удалить самого себя")
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        conn.execute("DELETE FROM exams WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM user_status WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM fcm_tokens WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+        conn.commit()
+        return {"message": "Пользователь удалён", "success": True}
+    finally:
+        conn.close()
+
+# ── Admin: Exams ──────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/admin/exams")
+async def admin_get_exams(current_user=Depends(require_admin)):
+    conn = get_db()
+    try:
+        cursor = conn.execute("""
+            SELECT e.id, e.user_id, u.full_name, e.name, e.date, e.duration
+            FROM exams e JOIN users u ON e.user_id = u.user_id
+            ORDER BY u.full_name, e.date DESC
+        """)
+        result = []
+        today = datetime.now()
+        for row in cursor.fetchall():
+            try:
+                exam_date = datetime.strptime(row['date'], '%d.%m.%Y')
+                duration_months = int(row['duration'])
+                end_date = exam_date + timedelta(days=duration_months * 30)
+                days_left = (end_date - today).days
+                status = "Просрочен" if days_left < 0 else ("Истекает" if days_left <= 30 else "Действующий")
+                expires = end_date.strftime('%d.%m.%Y')
+            except:
+                days_left = 0; status = ""; expires = ""
+            result.append({"id": row['id'], "user_id": row['user_id'], "user_name": row['full_name'],
+                           "name": row['name'], "date": row['date'], "duration": row['duration'],
+                           "expires_at": expires, "days_left": days_left, "status": status})
+        return result
+    finally:
+        conn.close()
+
+@app.post("/api/v1/admin/exams")
+async def admin_create_exam(request: Request, current_user=Depends(require_admin)):
+    data = await request.json()
+    user_id = data.get("user_id")
+    exam_type_id = data.get("exam_type_id")
+    date_str = data.get("date", "").strip()
+    if not user_id or not exam_type_id or not date_str:
+        raise HTTPException(status_code=400, detail="user_id, exam_type_id и date обязательны")
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        exam_type = conn.execute("SELECT name, duration FROM exam_types WHERE id = ?", (exam_type_id,)).fetchone()
+        if not exam_type:
+            raise HTTPException(status_code=404, detail="Тип экзамена не найден")
+        try:
+            exam_date = datetime.strptime(date_str, '%Y-%m-%d')
+            formatted_date = exam_date.strftime('%d.%m.%Y')
+        except:
+            raise HTTPException(status_code=400, detail="Формат даты: YYYY-MM-DD")
+        conn.execute("""INSERT INTO exams (user_id, name, date, duration, notification_sent, month_notification_sent,
+                          week_notification_sent, exam_day_notification_sent, end_day_notification_sent, last_notification_day)
+                          VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0)""",
+                     (user_id, exam_type['name'], formatted_date, str(exam_type['duration'])))
+        conn.commit()
+        return {"message": "Экзамен добавлен", "success": True}
+    finally:
+        conn.close()
+
+@app.put("/api/v1/admin/exams/{exam_id}")
+async def admin_update_exam(exam_id: int, request: Request, current_user=Depends(require_admin)):
+    data = await request.json()
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM exams WHERE id = ?", (exam_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Экзамен не найден")
+        fields, values = [], []
+        if data.get("date", "").strip():
+            date_str = data["date"].strip()
+            try:
+                d = datetime.strptime(date_str, '%Y-%m-%d'); date_str = d.strftime('%d.%m.%Y')
+            except:
+                try: datetime.strptime(date_str, '%d.%m.%Y')
+                except: raise HTTPException(status_code=400, detail="Неверный формат даты")
+            fields.append("date = ?"); values.append(date_str)
+        if data.get("name", "").strip():
+            fields.append("name = ?"); values.append(data["name"].strip())
+        if data.get("duration"):
+            fields.append("duration = ?"); values.append(str(data["duration"]))
+        if not fields:
+            raise HTTPException(status_code=400, detail="Нет данных для обновления")
+        values.append(exam_id)
+        conn.execute(f"UPDATE exams SET {', '.join(fields)} WHERE id = ?", values)
+        conn.commit()
+        return {"message": "Экзамен обновлён", "success": True}
+    finally:
+        conn.close()
+
+@app.delete("/api/v1/admin/exams/{exam_id}")
+async def admin_delete_exam(exam_id: int, current_user=Depends(require_admin)):
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM exams WHERE id = ?", (exam_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Экзамен не найден")
+        conn.execute("DELETE FROM exams WHERE id = ?", (exam_id,))
+        conn.commit()
+        return {"message": "Экзамен удалён", "success": True}
+    finally:
+        conn.close()
+
+# ── Admin: Exam Types ─────────────────────────────────────────────────────────
+
+@app.post("/api/v1/admin/exam-types")
+async def admin_create_exam_type(request: Request, current_user=Depends(require_admin)):
+    data = await request.json()
+    name = data.get("name", "").strip()
+    duration = data.get("duration")
+    emoji = data.get("emoji", "📚").strip() or "📚"
+    if not name or not duration:
+        raise HTTPException(status_code=400, detail="name и duration обязательны")
+    conn = get_db()
+    try:
+        if conn.execute("SELECT 1 FROM exam_types WHERE name = ?", (name,)).fetchone():
+            raise HTTPException(status_code=409, detail="Тип с таким названием уже существует")
+        conn.execute("INSERT INTO exam_types (name, duration, emoji) VALUES (?, ?, ?)", (name, duration, emoji))
+        conn.commit()
+        return {"message": "Тип экзамена создан", "success": True}
+    finally:
+        conn.close()
+
+@app.put("/api/v1/admin/exam-types/{type_id}")
+async def admin_update_exam_type(type_id: int, request: Request, current_user=Depends(require_admin)):
+    data = await request.json()
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM exam_types WHERE id = ?", (type_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Тип экзамена не найден")
+        fields, values = [], []
+        if data.get("name", "").strip():
+            fields.append("name = ?"); values.append(data["name"].strip())
+        if data.get("duration"):
+            fields.append("duration = ?"); values.append(int(data["duration"]))
+        if data.get("emoji"):
+            fields.append("emoji = ?"); values.append(data["emoji"].strip() or "📚")
+        if not fields:
+            raise HTTPException(status_code=400, detail="Нет данных для обновления")
+        values.append(type_id)
+        conn.execute(f"UPDATE exam_types SET {', '.join(fields)} WHERE id = ?", values)
+        conn.commit()
+        return {"message": "Тип экзамена обновлён", "success": True}
+    finally:
+        conn.close()
+
+@app.delete("/api/v1/admin/exam-types/{type_id}")
+async def admin_delete_exam_type(type_id: int, current_user=Depends(require_admin)):
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM exam_types WHERE id = ?", (type_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Тип экзамена не найден")
+        conn.execute("DELETE FROM exam_types WHERE id = ?", (type_id,))
+        conn.commit()
+        return {"message": "Тип экзамена удалён", "success": True}
+    finally:
+        conn.close()
+
+# ── Admin: Statuses ───────────────────────────────────────────────────────────
+
+@app.get("/api/v1/admin/statuses")
+async def admin_get_statuses(current_user=Depends(require_admin)):
+    conn = get_db()
+    try:
+        cursor = conn.execute("""
+            SELECT s.id, s.user_id, u.full_name, s.status, s.start_date, s.end_date
+            FROM user_status s JOIN users u ON s.user_id = u.user_id
+            ORDER BY s.start_date DESC
+        """)
+        return [dict(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+@app.post("/api/v1/admin/statuses")
+async def admin_create_status(request: Request, current_user=Depends(require_admin)):
+    data = await request.json()
+    user_id = data.get("user_id")
+    status = data.get("status", "").strip()
+    start_date = data.get("start_date", "").strip()
+    end_date = data.get("end_date", "").strip() or None
+    if not user_id or not status or not start_date:
+        raise HTTPException(status_code=400, detail="user_id, status и start_date обязательны")
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        conn.execute("INSERT INTO user_status (user_id, status, start_date, end_date) VALUES (?, ?, ?, ?)",
+                     (user_id, status, start_date, end_date))
+        conn.commit()
+        return {"message": "Статус добавлен", "success": True}
+    finally:
+        conn.close()
+
+@app.put("/api/v1/admin/statuses/{status_id}")
+async def admin_update_status(status_id: int, request: Request, current_user=Depends(require_admin)):
+    data = await request.json()
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM user_status WHERE id = ?", (status_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Статус не найден")
+        fields, values = [], []
+        if data.get("status", "").strip():
+            fields.append("status = ?"); values.append(data["status"].strip())
+        if data.get("start_date", "").strip():
+            fields.append("start_date = ?"); values.append(data["start_date"].strip())
+        if "end_date" in data:
+            fields.append("end_date = ?"); values.append(data["end_date"].strip() if data["end_date"] else None)
+        if not fields:
+            raise HTTPException(status_code=400, detail="Нет данных для обновления")
+        values.append(status_id)
+        conn.execute(f"UPDATE user_status SET {', '.join(fields)} WHERE id = ?", values)
+        conn.commit()
+        return {"message": "Статус обновлён", "success": True}
+    finally:
+        conn.close()
+
+@app.delete("/api/v1/admin/statuses/{status_id}")
+async def admin_delete_status(status_id: int, current_user=Depends(require_admin)):
+    conn = get_db()
+    try:
+        if not conn.execute("SELECT 1 FROM user_status WHERE id = ?", (status_id,)).fetchone():
+            raise HTTPException(status_code=404, detail="Статус не найден")
+        conn.execute("DELETE FROM user_status WHERE id = ?", (status_id,))
+        conn.commit()
+        return {"message": "Статус удалён", "success": True}
+    finally:
+        conn.close()
+
 @app.get("/")
 async def root():
     if os.path.exists('new_uaiss.html'):
