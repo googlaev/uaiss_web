@@ -34,7 +34,7 @@
         .theme-toggle, .logout-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 40px; padding: 6px 14px; cursor: pointer; font-size: 13px; color: var(--text-secondary); transition: all 0.2s; }
         .theme-toggle { border-radius: 50%; width: 38px; height: 38px; padding: 0; font-size: 18px; display: flex; align-items: center; justify-content: center; }
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; max-width: 500px; margin: 0 auto; background: var(--bg-surface); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 8px 12px 12px; z-index: 100; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font-size: 11px; color: var(--text-secondary); padding: 6px 8px; border-radius: 12px; transition: all 0.2s; flex: 1; max-width: 80px; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; font-size: 11px; color: var(--text-secondary); padding: 8px 10px; border-radius: 12px; transition: all 0.2s; flex: 1; max-width: 80px; min-height: 52px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .nav-item.active { color: var(--accent); background: rgba(59, 130, 246, 0.1); }
         .nav-icon { font-size: 22px; }
         .content { padding: 16px; animation: fadeIn 0.3s ease; }
@@ -80,7 +80,8 @@
         .status-card { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
         .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; background: rgba(16, 185, 129, 0.1); color: var(--working); }
         
-        .btn { border: none; padding: 10px 16px; border-radius: 14px; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 13px; transition: all 0.2s; }
+        .btn { border: none; padding: 14px 20px; border-radius: 14px; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 15px; transition: all 0.2s; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        .btn-icon { padding: 10px 12px; min-width: 44px; min-height: 44px; font-size: 18px; border-radius: 10px; }
         .btn-primary { background: var(--accent); color: white; }
         .btn-primary:active { transform: scale(0.96); }
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-primary); }
@@ -92,7 +93,7 @@
         .exam-type-btn:active { transform: scale(0.96); }
         
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; z-index: 200; }
-        .modal-content { background: var(--bg-surface); border-radius: 28px 28px 0 0; padding: 24px; max-height: 85vh; overflow-y: auto; width: 100%; animation: slideUp 0.3s ease; }
+        .modal-content { background: var(--bg-surface); border-radius: 28px 28px 0 0; padding: 24px 24px calc(24px + env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto; width: 100%; animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         
         .profile-modal-card {
@@ -168,7 +169,7 @@
         .status-stat-label { font-size: 9px; color: var(--text-secondary); white-space: nowrap; }
         
         .sort-buttons { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-        .sort-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 30px; padding: 8px 14px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+        .sort-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 30px; padding: 11px 18px; font-size: 13px; cursor: pointer; transition: all 0.2s; min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .sort-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
         
         .toast { position: fixed; bottom: 80px; left: 16px; right: 16px; background: var(--bg-surface); color: var(--text-primary); padding: 12px 16px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 150; animation: slideUp 0.3s ease; text-align: center; font-weight: 500; }
@@ -184,9 +185,8 @@
         @media (max-width: 450px) {
             .content { padding: 12px; }
             .card { padding: 14px; }
-            .nav-item { font-size: 10px; padding: 4px 4px; }
+            .nav-item { font-size: 10px; }
             .nav-icon { font-size: 20px; }
-            .btn { padding: 8px 12px; font-size: 12px; }
             .exam-card { flex-direction: column; align-items: flex-start; }
             .exam-actions { align-self: flex-end; }
             .status-card { flex-direction: column; align-items: flex-start; }
@@ -1090,9 +1090,9 @@
                                 <div style="font-size:11px;color:var(--text-secondary);text-align:right;flex-shrink:0;line-height:1.4;">
                                     <div>${exam.date}</div>
                                 </div>
-                                <div style="display:flex;gap:4px;flex-shrink:0;">
-                                    <button class="btn btn-outline" style="padding:4px 8px;font-size:13px;border-radius:8px;" onclick="window.openEditExamModal(${exam.id},'${exam.type}','${exam.date}')">✏️</button>
-                                    <button class="btn btn-outline" style="padding:4px 8px;font-size:13px;border-radius:8px;color:var(--danger);" onclick="window.deleteExam(${exam.id},'${exam.type}')">🗑️</button>
+                                <div style="display:flex;gap:6px;flex-shrink:0;">
+                                    <button class="btn btn-outline btn-icon" onclick="window.openEditExamModal(${exam.id},'${exam.type}','${exam.date}')">✏️</button>
+                                    <button class="btn btn-outline btn-icon" style="color:var(--danger);" onclick="window.deleteExam(${exam.id},'${exam.type}')">🗑️</button>
                                 </div>
                             </div>
                         </div>`;
@@ -1164,9 +1164,9 @@
                                     <div style="font-weight:600;font-size:13px;">${status.status}</div>
                                     <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${status.start_date} — ${status.end_date || 'По сей день'}</div>
                                 </div>
-                                <div style="display:flex;gap:4px;flex-shrink:0;">
-                                    <button class="btn btn-outline" style="padding:4px 8px;font-size:13px;border-radius:8px;" onclick="window.editStatusDates(${status.id},'${status.status}','${status.start_date}','${status.end_date || ''}')">✏️</button>
-                                    <button class="btn btn-outline" style="padding:4px 8px;font-size:13px;border-radius:8px;color:var(--danger);" onclick="window.deleteStatusWithConfirm(${status.id})">🗑️</button>
+                                <div style="display:flex;gap:6px;flex-shrink:0;">
+                                    <button class="btn btn-outline btn-icon" onclick="window.editStatusDates(${status.id},'${status.status}','${status.start_date}','${status.end_date || ''}')">✏️</button>
+                                    <button class="btn btn-outline btn-icon" style="color:var(--danger);" onclick="window.deleteStatusWithConfirm(${status.id})">🗑️</button>
                                 </div>
                             </div>
                         </div>
