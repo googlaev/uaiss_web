@@ -95,6 +95,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    check_and_fix_database()
+    conn = sqlite3.connect(CONFIG['database']['path'])
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS fcm_tokens (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    TEXT NOT NULL,
+            token      TEXT NOT NULL UNIQUE,
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.commit()
+    conn.close()
+    print("✅ Таблица fcm_tokens готова")
+
 security = HTTPBearer()
 
 SMTP_HOST = CONFIG['smtp']['host']
