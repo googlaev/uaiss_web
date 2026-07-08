@@ -396,9 +396,21 @@ def send_fcm_push(token: str, title: str, body: str, data: dict = None) -> bool:
         print(f"❌ FCM ошибка: {e}")
         return False
 
+def _ensure_fcm_table(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS fcm_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.commit()
+
 def send_push_to_user(user_id: str, title: str, body: str, data: dict = None):
     conn = sqlite3.connect(CONFIG['database']['path'])
     try:
+        _ensure_fcm_table(conn)
         rows = conn.execute(
             "SELECT token FROM fcm_tokens WHERE user_id = ?", (user_id,)
         ).fetchall()
@@ -593,6 +605,7 @@ async def save_fcm_token(request: Request, current_user=Depends(get_current_user
         raise HTTPException(status_code=400, detail="Token required")
     conn = get_db()
     try:
+        _ensure_fcm_table(conn)
         conn.execute(
             """INSERT INTO fcm_tokens (user_id, token, updated_at)
                VALUES (?, ?, datetime('now'))
