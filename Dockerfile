@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ntpdate tzdata \
+    ntpsec-ntpdate tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 ENV TZ=Europe/Moscow
