@@ -1295,25 +1295,6 @@
                         ${currentUser.role === 'admin' ? '<span style="background:linear-gradient(135deg,var(--accent),#818CF8);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;color:white;">👑 Администратор</span>' : ''}
                     </div>
 
-                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">
-                        <div class="stat-card" style="padding:10px 6px;text-align:center;">
-                            <div style="font-size:18px;font-weight:700;color:var(--working);">${stats.working||0}</div>
-                            <div style="font-size:10px;color:var(--text-secondary);">🟢 Работают</div>
-                        </div>
-                        <div class="stat-card" style="padding:10px 6px;text-align:center;">
-                            <div style="font-size:18px;font-weight:700;color:var(--sick);">${stats.sick||0}</div>
-                            <div style="font-size:10px;color:var(--text-secondary);">🤒 Больничный</div>
-                        </div>
-                        <div class="stat-card" style="padding:10px 6px;text-align:center;">
-                            <div style="font-size:18px;font-weight:700;color:var(--business-trip);">${stats.trip||0}</div>
-                            <div style="font-size:10px;color:var(--text-secondary);">✈️ Командировка</div>
-                        </div>
-                        <div class="stat-card" style="padding:10px 6px;text-align:center;">
-                            <div style="font-size:18px;font-weight:700;color:var(--vacation);">${stats.vacation||0}</div>
-                            <div style="font-size:10px;color:var(--text-secondary);">🏖️ Отпуск</div>
-                        </div>
-                    </div>
-
                     ${groups.map(g => {
                         const emps = allEmployees.filter(e => e.status_type === g.id);
                         if (emps.length === 0) return '';
