@@ -1715,9 +1715,7 @@
         window.closeModal = () => { modalType = null; render(); };
         window.toggleTheme = () => setDarkMode(!isDarkMode);
         window.refreshData = async () => {
-            showToast('🔄 Обновление...');
             await loadAllData();
-            render();
             showToast('✅ Данные обновлены');
         };
         window.logout = logout;
