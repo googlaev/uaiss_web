@@ -1289,17 +1289,9 @@
             return `<div class="content">
                 <div class="card-header" style="margin-bottom:16px;">
                     <div class="card-title">⚙️ Панель администратора</div>
-                    <button class="btn btn-primary btn-sm" onclick="window.adminOpenAdd()">+ ${addLabels[adminTab]}</button>
-                </div>
-                <div class="card" style="margin-bottom:16px;">
-                    <div style="font-size:14px;font-weight:600;margin-bottom:10px;">📣 Push-рассылка всем пользователям</div>
-                    <div class="form-group" style="margin-bottom:8px;">
-                        <input type="text" class="form-input" id="broadcastTitle" placeholder="Заголовок уведомления..." style="margin-bottom:8px;">
-                        <textarea class="form-input" id="broadcastMsg" placeholder="Текст сообщения для всех пользователей..." rows="2" style="resize:vertical;"></textarea>
-                    </div>
                     <div style="display:flex;gap:8px;">
-                        <button class="btn btn-primary" onclick="window.sendBroadcast('fcm')" style="flex:1;">📱 Мобильным (FCM)</button>
-                        <button class="btn btn-outline" onclick="window.sendBroadcast('web')" style="flex:1;">🌐 Веб</button>
+                        <button class="btn btn-outline btn-sm" onclick="window.openBroadcastModal()">📣 Рассылка</button>
+                        <button class="btn btn-primary btn-sm" onclick="window.adminOpenAdd()">+ ${addLabels[adminTab]}</button>
                     </div>
                 </div>
                 <div class="admin-tabs">${tabs.map(t=>`<button class="admin-tab${adminTab===t.id?' active':''}" onclick="window.adminSetTab('${t.id}')">${t.icon} ${t.label}</button>`).join('')}</div>
@@ -1520,6 +1512,28 @@
                     <div style="display:flex;gap:12px;margin-top:20px;"><button class="btn btn-primary" style="flex:1;" onclick="window.adminSaveStatus(${isEdit?d.id:'null'})">💾 Сохранить</button><button class="btn btn-outline" style="flex:1;" onclick="window.adminCloseModal()">Отмена</button></div>
                 </div></div>`;
             }
+            if (adminModalType === 'broadcast') {
+                return `<div class="modal-overlay" onclick="window.adminCloseModal()">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="max-width:400px;margin:0 auto;border-radius:28px 28px 0 0;">
+                        <div class="card-header" style="margin-bottom:16px;">
+                            <div class="card-title">📣 Push-рассылка</div>
+                            ${closeBtn}
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Заголовок</label>
+                            <input type="text" class="form-input" id="broadcastTitle" value="UAISS" placeholder="Заголовок уведомления">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Сообщение <span style="color:var(--danger)">*</span></label>
+                            <textarea class="form-input" id="broadcastMsg" placeholder="Текст уведомления для всех пользователей..." rows="3" style="resize:vertical;font-family:inherit;"></textarea>
+                        </div>
+                        <div style="background:rgba(59,130,246,0.08);border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);">
+                            📱 Уведомление придёт на все зарегистрированные мобильные устройства
+                        </div>
+                        <button class="btn btn-primary" style="width:100%;" onclick="window.sendBroadcast()">📤 Отправить всем пользователям</button>
+                    </div>
+                </div>`;
+            }
             return '';
         };
 
@@ -1713,22 +1727,23 @@
 
         window.adminSetTab = (tab) => { adminTab = tab; loadAdminData(); };
 
-        window.sendBroadcast = async (channel) => {
-            const title = document.getElementById('broadcastTitle')?.value?.trim();
+        window.openBroadcastModal = () => { adminModalType = 'broadcast'; render(); };
+
+        window.sendBroadcast = async () => {
+            const title = (document.getElementById('broadcastTitle')?.value?.trim()) || 'UAISS';
             const msg = document.getElementById('broadcastMsg')?.value?.trim();
             if (!msg) { showToast('❌ Введите текст уведомления'); return; }
             try {
                 const res = await apiRequest('/notifications/broadcast', {
                     method: 'POST',
-                    body: JSON.stringify({ title: title || 'UAISS', message: msg, channel })
+                    body: JSON.stringify({ title, message: msg })
                 });
+                const data = await res.json();
                 if (res.ok) {
-                    showToast('✅ Уведомление отправлено всем пользователям');
-                    document.getElementById('broadcastTitle').value = '';
-                    document.getElementById('broadcastMsg').value = '';
+                    showToast(`✅ ${data.message}`);
+                    window.adminCloseModal();
                 } else {
-                    const e = await res.json();
-                    showToast(`❌ ${e.detail || 'Ошибка отправки'}`);
+                    showToast(`❌ ${data.detail || 'Ошибка отправки'}`);
                 }
             } catch(e) { showToast('❌ Ошибка соединения'); }
         };

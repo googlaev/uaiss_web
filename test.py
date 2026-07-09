@@ -637,12 +637,47 @@ async def test_push_notification(current_user=Depends(get_current_user)):
 async def send_notifications_manual(current_user=Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Доступ запрещен")
-    
+
     thread = Thread(target=check_and_send_notifications_sync)
     thread.daemon = True
     thread.start()
-    
+
     return {"message": "Уведомления начали отправляться в фоновом режиме"}
+
+class BroadcastRequest(BaseModel):
+    title: str = "UAISS"
+    message: str
+
+@app.post("/api/v1/notifications/broadcast")
+async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+    if not body.message.strip():
+        raise HTTPException(status_code=400, detail="Текст сообщения не может быть пустым")
+
+    conn = get_db()
+    try:
+        _ensure_fcm_table(conn)
+        rows = conn.execute("SELECT DISTINCT token FROM fcm_tokens").fetchall()
+    finally:
+        conn.close()
+
+    tokens = [row[0] for row in rows]
+    if not tokens:
+        raise HTTPException(status_code=404, detail="Нет зарегистрированных устройств")
+
+    def _send_all():
+        sent = 0
+        for token in tokens:
+            if send_fcm_push(token, body.title, body.message, {"view": "home"}):
+                sent += 1
+        print(f"✅ Broadcast: {sent}/{len(tokens)} устройств")
+
+    thread = Thread(target=_send_all)
+    thread.daemon = True
+    thread.start()
+
+    return {"sent": len(tokens), "message": f"Рассылка запущена для {len(tokens)} устройств"}
 
 @app.get("/api/v1/exams/report/csv")
 async def export_exams_report(current_user=Depends(get_current_user)):
