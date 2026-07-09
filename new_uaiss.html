@@ -250,6 +250,8 @@
         let statusStats = null;
         let isLoading = false;
         let examSortType = 'date_asc';
+        let notifLogs = [];
+        let notifLoading = false;
         
         let editingExamId = null;
         let editingExamName = null;
@@ -1299,6 +1301,66 @@
             </div>`;
         }
 
+        function NotificationsView() {
+            if (notifLoading) return `<div class="loading">⏳ Загрузка журнала...</div>`;
+            const typeIcon  = { broadcast:'📣', exam_expiry:'⚠️', exam_expired:'🔴', test:'🧪' };
+            const typeName  = { broadcast:'Рассылка', exam_expiry:'Истекает', exam_expired:'Просрочен', test:'Тест' };
+            const typeBg    = { broadcast:'rgba(59,130,246,0.08)', exam_expiry:'rgba(245,158,11,0.08)', exam_expired:'rgba(239,68,68,0.08)', test:'rgba(100,116,139,0.08)' };
+            const typeBorder= { broadcast:'var(--accent)', exam_expiry:'var(--warning)', exam_expired:'var(--danger)', test:'var(--text-secondary)' };
+            return `
+                <div class="content">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                        <div class="card-title">🔔 Журнал уведомлений</div>
+                        <button class="btn btn-outline" style="font-size:12px;padding:6px 14px;min-height:34px;" onclick="window.loadNotifLogs()">🔄 Обновить</button>
+                    </div>
+                    ${notifLogs.length === 0
+                        ? `<div class="card" style="text-align:center;padding:40px 20px;">
+                               <div style="font-size:48px;margin-bottom:12px;">🔕</div>
+                               <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Нет уведомлений</div>
+                               <div style="font-size:13px;color:var(--text-secondary);">Здесь будут отображаться все уведомления</div>
+                           </div>`
+                        : notifLogs.map(n => {
+                            const icon   = typeIcon[n.type]   || '🔔';
+                            const label  = typeName[n.type]  || n.type;
+                            const bg     = typeBg[n.type]    || 'var(--bg-surface)';
+                            const border = typeBorder[n.type]|| 'var(--border)';
+                            const dt = n.sent_at ? n.sent_at.replace('T',' ').slice(0,16) : '';
+                            const recipient = n.user_name
+                                ? `<span style="font-size:11px;color:var(--text-secondary);">👤 ${n.user_name}</span>`
+                                : `<span style="font-size:11px;color:var(--accent);">📢 Всем пользователям</span>`;
+                            const sender = (n.sent_by && n.sent_by !== 'system')
+                                ? `<span style="font-size:11px;color:var(--text-secondary);">от ${n.sent_by_name || n.sent_by}</span>` : '';
+                            return `<div style="background:${bg};border-left:3px solid ${border};border-radius:14px;padding:12px 14px;margin-bottom:10px;">
+                                <div style="display:flex;align-items:flex-start;gap:10px;">
+                                    <span style="font-size:22px;line-height:1.2;">${icon}</span>
+                                    <div style="flex:1;min-width:0;">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">
+                                            <span style="font-size:13px;font-weight:600;">${n.title}</span>
+                                            <span style="font-size:10px;background:${border};color:white;padding:1px 7px;border-radius:10px;opacity:0.85;">${label}</span>
+                                        </div>
+                                        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">${n.body}</div>
+                                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                                            ${recipient}
+                                            ${sender}
+                                            <span style="font-size:11px;color:var(--text-secondary);margin-left:auto;">${dt}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('')
+                    }
+                </div>`;
+        }
+
+        window.loadNotifLogs = async () => {
+            notifLoading = true; render();
+            try {
+                const res = await apiRequest('/notifications/log');
+                if (res.ok) notifLogs = await res.json();
+            } catch(e) { showToast('❌ Ошибка загрузки журнала'); }
+            notifLoading = false; render();
+        };
+
         function ManagementView() {
             if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
             const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0, employees: [] };
@@ -1543,7 +1605,11 @@
             if (loginInput && passwordInput) login(loginInput.value, passwordInput.value);
         };
 
-        window.changeView = (view) => { currentView = view; selectedExamType = null; modalType = null; adminModalType = null; examMenuOpen = false; render(); if (view === 'admin') loadAdminData(); };
+        window.changeView = (view) => {
+            currentView = view; selectedExamType = null; modalType = null; adminModalType = null; examMenuOpen = false; render();
+            if (view === 'admin') loadAdminData();
+            if (view === 'notifications' && notifLogs.length === 0) window.loadNotifLogs();
+        };
         window.toggleExamMenu = (e) => { e.stopPropagation(); examMenuOpen = !examMenuOpen; render(); };
         window.closeExamMenu = () => { examMenuOpen = false; render(); };
         window.downloadExamsCSV = async () => {
@@ -1857,10 +1923,11 @@
                 case 'add-exam': mainContent = AddExamView(); break;
                 case 'status': mainContent = StatusView(); break;
                 case 'management': mainContent = ManagementView(); break;
+                case 'notifications': mainContent = NotificationsView(); break;
                 case 'admin': mainContent = AdminPanelView(); break;
                 default: mainContent = HomeView();
             }
-            const navItems = [{ id: 'home', icon: '🏠', label: 'Главная' }, { id: 'exams', icon: '📋', label: 'Экзамены' }, { id: 'status', icon: '👤', label: 'Статус' }, { id: 'management', icon: '📊', label: 'Управление' }, ...(currentUser?.role === 'admin' ? [{ id: 'admin', icon: '⚙️', label: 'Админ' }] : [])];
+            const navItems = [{ id: 'home', icon: '🏠', label: 'Главная' }, { id: 'exams', icon: '📋', label: 'Экзамены' }, { id: 'status', icon: '👤', label: 'Статус' }, { id: 'management', icon: '📊', label: 'Управление' }, { id: 'notifications', icon: '🔔', label: 'Журнал' }, ...(currentUser?.role === 'admin' ? [{ id: 'admin', icon: '⚙️', label: 'Админ' }] : [])];
             const html = `<div class="app"><div class="header"><div class="header-content"><div><div class="logo">UAISS</div><div style="font-size:10px;color:${isOnline?'var(--success)':'var(--danger)'};margin-top:1px;font-weight:500;">${isOnline?'🟢 Подключено':'🔴 Офлайн'}</div></div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${formatShortName(currentUser?.name || '')}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="theme-toggle" onclick="window.refreshData()" title="Обновить" style="font-size:16px;">🔄</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}${window.renderAdminModal()}</div>`;
             document.getElementById('root').innerHTML = html;
         }

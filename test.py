@@ -128,11 +128,24 @@ async def startup_event():
                 updated_at TEXT DEFAULT (datetime('now'))
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS notification_logs (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                sent_at       TEXT DEFAULT (datetime('now', 'localtime')),
+                type          TEXT NOT NULL,
+                title         TEXT NOT NULL,
+                body          TEXT NOT NULL,
+                user_id       TEXT,
+                user_name     TEXT,
+                sent_by       TEXT DEFAULT 'system',
+                sent_by_name  TEXT DEFAULT 'Система'
+            )
+        """)
         conn.commit()
         conn.close()
-        print("✅ Таблица fcm_tokens готова")
+        print("✅ Таблицы fcm_tokens, notification_logs готовы")
     except Exception as e:
-        print(f"❌ Ошибка создания fcm_tokens: {e}")
+        print(f"❌ Ошибка создания таблиц: {e}")
 
 security = HTTPBearer()
 
@@ -419,6 +432,22 @@ def send_push_to_user(user_id: str, title: str, body: str, data: dict = None):
     for (token,) in rows:
         send_fcm_push(token, title, body, data)
 
+def log_notification(type_: str, title: str, body: str,
+                     user_id: str = None, user_name: str = None,
+                     sent_by: str = 'system', sent_by_name: str = 'Система'):
+    try:
+        conn = sqlite3.connect(CONFIG['database']['path'])
+        conn.execute(
+            """INSERT INTO notification_logs
+               (type, title, body, user_id, user_name, sent_by, sent_by_name)
+               VALUES (?,?,?,?,?,?,?)""",
+            (type_, title, body, user_id, user_name, sent_by, sent_by_name)
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"❌ log_notification error: {e}")
+
 def check_and_send_notifications_sync():
     if not NOTIFICATIONS_ENABLED:
         print("ℹ️ Уведомления отключены в конфигурации")
@@ -484,12 +513,11 @@ http://localhost:{CONFIG['server']['port']}
                         conn.commit()
                         notifications_sent += 1
                         print(f"✅ Уведомление за {nd} дней отправлено для {row['exam_name']} -> {row['email']}")
-                    send_push_to_user(
-                        row['user_id'],
-                        f"⚠️ Экзамен истекает через {nd} дней",
-                        f"{row['exam_name']} — до {end_date.strftime('%d.%m.%Y')}",
-                        {"view": "exams"}
-                    )
+                    push_title = f"⚠️ Экзамен истекает через {nd} дней"
+                    push_body = f"{row['exam_name']} — до {end_date.strftime('%d.%m.%Y')}"
+                    send_push_to_user(row['user_id'], push_title, push_body, {"view": "exams"})
+                    log_notification('exam_expiry', push_title, push_body,
+                                     user_id=row['user_id'], user_name=row['full_name'])
                     
             if NOTIFY_EXPIRED and days_left < 0 and last_sent != -1:
                 subject = f"🔴 СРОЧНО! Экзамен просрочен - {row['full_name']}"
@@ -516,12 +544,11 @@ http://localhost:{CONFIG['server']['port']}
                     )
                     conn.commit()
                     notifications_sent += 1
-                send_push_to_user(
-                    row['user_id'],
-                    "🔴 Экзамен просрочен!",
-                    f"{row['exam_name']} просрочен на {abs(days_left)} дней",
-                    {"view": "exams"}
-                )
+                expired_title = "🔴 Экзамен просрочен!"
+                expired_body = f"{row['exam_name']} просрочен на {abs(days_left)} дней"
+                send_push_to_user(row['user_id'], expired_title, expired_body, {"view": "exams"})
+                log_notification('exam_expired', expired_title, expired_body,
+                                 user_id=row['user_id'], user_name=row['full_name'])
                     
         except Exception as e:
             print(f"Ошибка обработки экзамена: {e}")
@@ -666,6 +693,8 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
     if not tokens:
         raise HTTPException(status_code=404, detail="Нет зарегистрированных устройств")
 
+    admin_name = current_user.get("name", current_user.get("user_id", "Админ"))
+
     def _send_all():
         sent = 0
         for token in tokens:
@@ -677,7 +706,30 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
     thread.daemon = True
     thread.start()
 
+    log_notification('broadcast', body.title, body.message,
+                     user_id=None, user_name=None,
+                     sent_by=current_user["user_id"], sent_by_name=admin_name)
+
     return {"sent": len(tokens), "message": f"Рассылка запущена для {len(tokens)} устройств"}
+
+@app.get("/api/v1/notifications/log")
+async def get_notification_log(current_user=Depends(get_current_user)):
+    conn = get_db()
+    try:
+        if current_user["role"] == "admin":
+            rows = conn.execute(
+                "SELECT * FROM notification_logs ORDER BY sent_at DESC LIMIT 300"
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT * FROM notification_logs
+                   WHERE user_id = ? OR user_id IS NULL
+                   ORDER BY sent_at DESC LIMIT 100""",
+                (current_user["user_id"],)
+            ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
 
 @app.get("/api/v1/exams/report/csv")
 async def export_exams_report(current_user=Depends(get_current_user)):
