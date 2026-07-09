@@ -299,6 +299,7 @@
                     authToken = data.access_token;
                     localStorage.setItem('authToken', authToken);
                     currentUser = { user_id: data.user_id, name: data.full_name, role: data.role, email: data.email || '' };
+                    localStorage.setItem('cachedUser', JSON.stringify(currentUser));
                     isAuthenticated = true;
                     loginError = null;
                     await loadAllData();
@@ -322,17 +323,17 @@
             render();
             try {
                 const typesRes = await apiRequest('/exam-types');
-                if (typesRes.ok) examTypes = await typesRes.json();
+                if (typesRes.ok) { examTypes = await typesRes.json(); localStorage.setItem('cachedExamTypes', JSON.stringify(examTypes)); }
                 const examsRes = await apiRequest('/exams/my');
-                if (examsRes.ok) myExams = await examsRes.json();
+                if (examsRes.ok) { myExams = await examsRes.json(); localStorage.setItem('cachedExams', JSON.stringify(myExams)); }
                 const statusRes = await apiRequest('/status/my');
-                if (statusRes.ok) myStatuses = await statusRes.json();
+                if (statusRes.ok) { myStatuses = await statusRes.json(); localStorage.setItem('cachedStatuses', JSON.stringify(myStatuses)); }
                 const statsRes = await apiRequest('/status/current');
-                if (statsRes.ok) statusStats = await statsRes.json();
+                if (statsRes.ok) { statusStats = await statsRes.json(); localStorage.setItem('cachedStats', JSON.stringify(statusStats)); }
                 const meRes = await apiRequest('/auth/me');
                 if (meRes.ok) {
                     const meData = await meRes.json();
-                    if (currentUser) currentUser.email = meData.email;
+                    if (currentUser) { currentUser.email = meData.email; localStorage.setItem('cachedUser', JSON.stringify(currentUser)); }
                 }
             } catch (error) {
                 console.error('Ошибка загрузки данных:', error);
@@ -594,6 +595,11 @@
         function logout() {
             authToken = null;
             localStorage.removeItem('authToken');
+            localStorage.removeItem('cachedUser');
+            localStorage.removeItem('cachedExams');
+            localStorage.removeItem('cachedStatuses');
+            localStorage.removeItem('cachedStats');
+            localStorage.removeItem('cachedExamTypes');
             isAuthenticated = false;
             currentUser = null;
             currentView = 'home';
@@ -1809,14 +1815,46 @@
             document.getElementById('root').innerHTML = html;
         }
         
-        if (authToken) {
-            fetch(`${API_BASE}/auth/me`, { headers: { 'Authorization': `Bearer ${authToken}` } }).then(response => {
-                if (response.ok) return response.json();
-                else throw new Error('Токен недействителен');
-            }).then(user => { currentUser = { user_id: user.user_id, name: user.full_name, role: user.role, email: user.email }; isAuthenticated = true; loadAllData(); }).catch(() => { authToken = null; localStorage.removeItem('authToken'); render(); });
+        async function initApp() {
+            setDarkMode(isDarkMode);
+            if (!authToken) { render(); return; }
+
+            const cachedUser = JSON.parse(localStorage.getItem('cachedUser') || 'null');
+            if (cachedUser) {
+                currentUser = cachedUser;
+                const ce = localStorage.getItem('cachedExams');     if (ce) myExams = JSON.parse(ce);
+                const cs = localStorage.getItem('cachedStatuses');  if (cs) myStatuses = JSON.parse(cs);
+                const cst = localStorage.getItem('cachedStats');    if (cst) statusStats = JSON.parse(cst);
+                const ct = localStorage.getItem('cachedExamTypes'); if (ct) examTypes = JSON.parse(ct);
+                isAuthenticated = true;
+                render();
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (response.status === 401 || response.status === 403) {
+                    logout();
+                    showToast('❌ Сессия истекла. Войдите заново.');
+                    render();
+                    return;
+                }
+                if (!response.ok) throw new Error('server_error');
+                const user = await response.json();
+                currentUser = { user_id: user.user_id, name: user.full_name, role: user.role, email: user.email || '' };
+                localStorage.setItem('cachedUser', JSON.stringify(currentUser));
+                isAuthenticated = true;
+                await loadAllData();
+            } catch (e) {
+                if (isAuthenticated) {
+                    showToast('⚠️ Сервер недоступен. Показаны сохранённые данные.', 5000);
+                } else {
+                    render();
+                }
+            }
         }
-        setDarkMode(isDarkMode);
-        render();
+        initApp();
     </script>
 </body>
 </html>
