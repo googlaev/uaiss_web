@@ -95,6 +95,7 @@
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; z-index: 200; }
         .modal-content { background: var(--bg-surface); border-radius: 28px 28px 0 0; padding: 24px 24px calc(24px + env(safe-area-inset-bottom)); max-height: 85vh; overflow-y: auto; width: 100%; animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes csvProgress { 0% { left: -55%; } 100% { left: 110%; } }
         
         .profile-modal-card {
             background: var(--bg-surface);
@@ -1504,25 +1505,67 @@
         window.closeExamMenu = () => { examMenuOpen = false; render(); };
         window.downloadExamsCSV = async () => {
             examMenuOpen = false; render();
+
+            const $m = () => document.getElementById('csvProgressModal');
+            const showProgress = (done) => {
+                let m = $m();
+                if (!m) {
+                    m = document.createElement('div');
+                    m.id = 'csvProgressModal';
+                    m.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+                    document.body.appendChild(m);
+                }
+                const barHtml = done
+                    ? `<div style="background:var(--bg-primary);border-radius:8px;height:10px;overflow:hidden;">
+                           <div style="background:var(--accent);height:100%;width:100%;border-radius:8px;"></div>
+                       </div>
+                       <div style="font-size:14px;color:var(--accent);margin-top:10px;font-weight:600;">✅ Готово!</div>`
+                    : `<div style="background:var(--bg-primary);border-radius:8px;height:10px;overflow:hidden;position:relative;">
+                           <div style="position:absolute;top:0;height:100%;width:55%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:csvProgress 1s ease-in-out infinite;"></div>
+                       </div>`;
+                m.innerHTML = `
+                    <div style="background:var(--bg-surface);border-radius:20px;padding:28px 24px;width:min(290px,90vw);text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
+                        <div style="font-size:44px;margin-bottom:12px;">📥</div>
+                        <div style="font-size:15px;font-weight:700;margin-bottom:4px;">${done ? 'Файл готов' : 'Формирование CSV...'}</div>
+                        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;">Все экзамены всех сотрудников</div>
+                        ${barHtml}
+                    </div>`;
+            };
+            const hideProgress = () => $m()?.remove();
+
+            showProgress(false);
             try {
-                showToast('⏳ Формируется CSV...');
                 const response = await apiRequest('/exams/report/csv');
-                if (!response.ok) { showToast('❌ Ошибка загрузки'); return; }
-                const blob = await response.blob();
+                if (!response.ok) { hideProgress(); showToast('❌ Ошибка загрузки'); return; }
+
+                const reader = response.body.getReader();
+                const chunks = [];
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    chunks.push(value);
+                }
+
+                showProgress(true);
+                await new Promise(r => setTimeout(r, 700));
+                hideProgress();
+
+                const blob = new Blob(chunks, { type: 'text/csv;charset=utf-8' });
                 const d = new Date();
                 const filename = `exams_${String(d.getDate()).padStart(2,'0')}_${String(d.getMonth()+1).padStart(2,'0')}_${d.getFullYear()}.csv`;
                 const file = new File([blob], filename, { type: 'text/csv;charset=utf-8' });
+
                 if (navigator.canShare?.({ files: [file] })) {
                     await navigator.share({ files: [file], title: 'Экзамены CSV' });
                 } else {
                     const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url; a.download = filename;
+                    const a = document.createElement('a'); a.href = url; a.download = filename;
                     document.body.appendChild(a); a.click();
                     document.body.removeChild(a); URL.revokeObjectURL(url);
-                    showToast('✅ CSV успешно скачан');
+                    showToast('✅ CSV скачан');
                 }
             } catch(e) {
+                hideProgress();
                 if (e?.name !== 'AbortError') showToast('❌ Ошибка: ' + (e?.message || 'соединения'));
             }
         };
