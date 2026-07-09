@@ -237,6 +237,7 @@
         let currentView = 'home';
         let currentToast = null;
         let isDarkMode = localStorage.getItem('darkMode') === 'true';
+        let isOnline = navigator.onLine;
         let loginError = null;
         let modalType = null;
         let selectedExamType = null;
@@ -1290,6 +1291,17 @@
                     <div class="card-title">⚙️ Панель администратора</div>
                     <button class="btn btn-primary btn-sm" onclick="window.adminOpenAdd()">+ ${addLabels[adminTab]}</button>
                 </div>
+                <div class="card" style="margin-bottom:16px;">
+                    <div style="font-size:14px;font-weight:600;margin-bottom:10px;">📣 Push-рассылка всем пользователям</div>
+                    <div class="form-group" style="margin-bottom:8px;">
+                        <input type="text" class="form-input" id="broadcastTitle" placeholder="Заголовок уведомления..." style="margin-bottom:8px;">
+                        <textarea class="form-input" id="broadcastMsg" placeholder="Текст сообщения для всех пользователей..." rows="2" style="resize:vertical;"></textarea>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-primary" onclick="window.sendBroadcast('fcm')" style="flex:1;">📱 Мобильным (FCM)</button>
+                        <button class="btn btn-outline" onclick="window.sendBroadcast('web')" style="flex:1;">🌐 Веб</button>
+                    </div>
+                </div>
                 <div class="admin-tabs">${tabs.map(t=>`<button class="admin-tab${adminTab===t.id?' active':''}" onclick="window.adminSetTab('${t.id}')">${t.icon} ${t.label}</button>`).join('')}</div>
                 <div class="card">${rows}</div>
             </div>`;
@@ -1437,8 +1449,13 @@
                                 </div>
                             </div>
                             
+                            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-primary);border-radius:14px;padding:14px 16px;margin-bottom:16px;">
+                                <span style="font-size:14px;font-weight:500;">Тема оформления</span>
+                                <button onclick="window.toggleTheme()" style="background:${isDarkMode?'var(--accent)':'transparent'};border:1px solid var(--border);border-radius:20px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:500;color:${isDarkMode?'white':'var(--text-primary)'};">${isDarkMode?'🌙 Тёмная':'☀️ Светлая'}</button>
+                            </div>
+
                             <button class="btn-save" style="width: 100%; padding: 14px; background: var(--accent); color: white; border: none; border-radius: 14px; font-weight: 600; cursor: pointer; margin-bottom: 16px;" onclick="window.saveProfileChanges()">💾 Сохранить изменения</button>
-                            
+
                             <div class="profile-actions" style="text-align: center; padding-top: 16px; border-top: 1px solid var(--border);">
                                 <button class="btn-logout" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 14px; padding: 8px;" onclick="window.logout(); window.closeProfileModal();">🚪 Выйти из системы</button>
                             </div>
@@ -1695,6 +1712,26 @@
         window.closeProfileModal = () => { modalType = null; render(); };
 
         window.adminSetTab = (tab) => { adminTab = tab; loadAdminData(); };
+
+        window.sendBroadcast = async (channel) => {
+            const title = document.getElementById('broadcastTitle')?.value?.trim();
+            const msg = document.getElementById('broadcastMsg')?.value?.trim();
+            if (!msg) { showToast('❌ Введите текст уведомления'); return; }
+            try {
+                const res = await apiRequest('/notifications/broadcast', {
+                    method: 'POST',
+                    body: JSON.stringify({ title: title || 'UAISS', message: msg, channel })
+                });
+                if (res.ok) {
+                    showToast('✅ Уведомление отправлено всем пользователям');
+                    document.getElementById('broadcastTitle').value = '';
+                    document.getElementById('broadcastMsg').value = '';
+                } else {
+                    const e = await res.json();
+                    showToast(`❌ ${e.detail || 'Ошибка отправки'}`);
+                }
+            } catch(e) { showToast('❌ Ошибка соединения'); }
+        };
         window.adminCloseModal = () => { adminModalType = null; adminEditData = null; render(); };
         window.adminOpenAdd = async () => {
             adminEditData = null;
@@ -1811,7 +1848,7 @@
                 default: mainContent = HomeView();
             }
             const navItems = [{ id: 'home', icon: '🏠', label: 'Главная' }, { id: 'exams', icon: '📋', label: 'Экзамены' }, { id: 'status', icon: '👤', label: 'Статус' }, { id: 'management', icon: '📊', label: 'Управление' }, ...(currentUser?.role === 'admin' ? [{ id: 'admin', icon: '⚙️', label: 'Админ' }] : [])];
-            const html = `<div class="app"><div class="header"><div class="header-content"><div class="logo">UAISS Web</div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${formatShortName(currentUser?.name || '')}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="theme-toggle" onclick="window.refreshData()" title="Обновить" style="font-size:16px;">🔄</button><button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}${window.renderAdminModal()}</div>`;
+            const html = `<div class="app"><div class="header"><div class="header-content"><div><div class="logo">UAISS</div><div style="font-size:10px;color:${isOnline?'var(--success)':'var(--danger)'};margin-top:1px;font-weight:500;">${isOnline?'🟢 Подключено':'🔴 Офлайн'}</div></div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${formatShortName(currentUser?.name || '')}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="theme-toggle" onclick="window.refreshData()" title="Обновить" style="font-size:16px;">🔄</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}${window.renderAdminModal()}</div>`;
             document.getElementById('root').innerHTML = html;
         }
         
@@ -1854,6 +1891,8 @@
                 }
             }
         }
+        window.addEventListener('online',  () => { isOnline = true;  render(); });
+        window.addEventListener('offline', () => { isOnline = false; render(); });
         initApp();
     </script>
 </body>
