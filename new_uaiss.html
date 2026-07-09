@@ -990,10 +990,7 @@
             return `
                 <div class="content">
                     <div class="status-stats-card">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                            <div class="status-stats-title" style="margin-bottom:0;">📊 Статистика статусов</div>
-                            <button class="btn btn-outline" style="padding:5px 12px;font-size:12px;min-height:34px;border-radius:10px;" onclick="window.refreshData()">🔄 Обновить</button>
-                        </div>
+                        <div class="status-stats-title">📊 Статистика статусов</div>
                         <div class="status-stats-grid">
                             <div class="status-stat-item" onclick="window.setStatusFilterAndGo('working')">
                                 <div class="status-stat-emoji">🟢</div>
@@ -1808,7 +1805,7 @@
                 default: mainContent = HomeView();
             }
             const navItems = [{ id: 'home', icon: '🏠', label: 'Главная' }, { id: 'exams', icon: '📋', label: 'Экзамены' }, { id: 'status', icon: '👤', label: 'Статус' }, { id: 'management', icon: '📊', label: 'Управление' }, ...(currentUser?.role === 'admin' ? [{ id: 'admin', icon: '⚙️', label: 'Админ' }] : [])];
-            const html = `<div class="app"><div class="header"><div class="header-content"><div class="logo">UAISS Web</div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${formatShortName(currentUser?.name || '')}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="logout-btn" onclick="window.logout()">Выйти</button><button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}${window.renderAdminModal()}</div>`;
+            const html = `<div class="app"><div class="header"><div class="header-content"><div class="logo">UAISS Web</div><div class="header-right"><button class="profile-name-btn" onclick="window.openProfileModal()"><span>${formatShortName(currentUser?.name || '')}</span> ${currentUser?.role === 'admin' ? '👑' : ''}</button><button class="theme-toggle" onclick="window.refreshData()" title="Обновить" style="font-size:16px;">🔄</button><button class="theme-toggle" onclick="window.toggleTheme()">${isDarkMode ? '☀️' : '🌙'}</button></div></div></div>${mainContent}<div class="bottom-nav">${navItems.map(item => `<button class="nav-item ${currentView === item.id ? 'active' : ''}" onclick="window.changeView('${item.id}')"><span class="nav-icon">${item.icon}</span><span>${item.label}</span></button>`).join('')}</div>${currentToast ? `<div class="toast">${currentToast}</div>` : ''}${window.renderModal()}${window.renderAdminModal()}</div>`;
             document.getElementById('root').innerHTML = html;
         }
         
