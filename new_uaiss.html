@@ -22,6 +22,7 @@
             --success: #22C55E; --warning: #F59E0B; --danger: #EF4444;
             --border: #334155; --sick: #F87171; --business-trip: #A78BFA;
             --vacation: #38BDF8; --working: #34D399; --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            color-scheme: dark;
         }
         body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); transition: all 0.3s ease; }
         .app { max-width: 500px; margin: 0 auto; min-height: 100vh; background: var(--bg-primary); position: relative; padding-bottom: 70px; }
@@ -60,7 +61,7 @@
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px; }
         .card-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
         
-        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
         .stat-card { background: var(--bg-surface); border-radius: 16px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; }
         .stat-card:active { transform: scale(0.96); }
         .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
@@ -973,6 +974,14 @@
             if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
             const expiringCount = myExams.filter(e => e.status === 'Истекает').length;
             const criticalCount = myExams.filter(e => e.status === 'Истекает' && e.days_left <= 7).length;
+            const expiredCount = myExams.filter(e => {
+                if (!e.expires_at) return false;
+                const p = e.expires_at.split('.');
+                if (p.length !== 3) return false;
+                const d = new Date(`${p[2]}-${p[1]}-${p[0]}`); d.setHours(0,0,0,0);
+                const today = new Date(); today.setHours(0,0,0,0);
+                return d < today;
+            }).length;
             const activeStatus = getActiveStatus();
             const activeStatusText = activeStatus ? activeStatus.status : "🟢 На рабочем месте";
             const upcomingExams = myExams.filter(e => e.status === 'Истекает').slice(0, 3);
@@ -981,7 +990,10 @@
             return `
                 <div class="content">
                     <div class="status-stats-card">
-                        <div class="status-stats-title">📊 Статистика статусов</div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                            <div class="status-stats-title" style="margin-bottom:0;">📊 Статистика статусов</div>
+                            <button class="btn btn-outline" style="padding:5px 12px;font-size:12px;min-height:34px;border-radius:10px;" onclick="window.refreshData()">🔄 Обновить</button>
+                        </div>
                         <div class="status-stats-grid">
                             <div class="status-stat-item" onclick="window.setStatusFilterAndGo('working')">
                                 <div class="status-stat-emoji">🟢</div>
@@ -1014,6 +1026,10 @@
                         <div class="stat-card" onclick="window.changeView('exams')">
                             <div class="stat-value" style="color: ${criticalCount > 0 ? 'var(--danger)' : 'var(--warning)'};">${expiringCount}</div>
                             <div class="stat-label">Истекают скоро</div>
+                        </div>
+                        <div class="stat-card" onclick="window.changeView('exams')" style="${expiredCount > 0 ? 'border:1px solid var(--danger);' : ''}">
+                            <div class="stat-value" style="color:var(--danger);">${expiredCount}</div>
+                            <div class="stat-label">Просрочено</div>
                         </div>
                     </div>
                     
@@ -1282,9 +1298,9 @@
             const allEmployees = stats.employees || [];
 
             const groups = [
-                { id: 'working',  icon: '🟢', label: 'На рабочем месте', color: 'var(--working)',        bg: 'rgba(16,185,129,0.08)'  },
                 { id: 'sick',     icon: '🤒', label: 'Больничный',        color: 'var(--sick)',           bg: 'rgba(239,68,68,0.08)'   },
                 { id: 'trip',     icon: '✈️', label: 'Командировка',      color: 'var(--business-trip)',  bg: 'rgba(139,92,246,0.08)'  },
+                { id: 'working',  icon: '🟢', label: 'На рабочем месте', color: 'var(--working)',        bg: 'rgba(16,185,129,0.08)'  },
                 { id: 'vacation', icon: '🏖️', label: 'Отпуск',            color: 'var(--vacation)',       bg: 'rgba(14,165,233,0.08)'  }
             ];
 
@@ -1358,8 +1374,9 @@
                                 <input type="date" class="form-input" id="startDate" value="${new Date().toISOString().split('T')[0]}">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">📅 Дата окончания</label>
-                                <input type="date" class="form-input" id="endDate">
+                                <label class="form-label">📅 Дата окончания <span style="color:var(--danger)">*</span></label>
+                                <input type="date" class="form-input" id="endDate" required>
+                                <small style="font-size:11px;color:var(--text-secondary);">* Обязательное поле</small>
                             </div>
                             <div style="display: flex; gap: 12px; margin-top: 20px;">
                                 <button class="btn btn-primary" style="flex: 1;" onclick="window.addStatusWithDates('${statusText}')">Сохранить</button>
@@ -1636,6 +1653,7 @@
             const startDate = document.getElementById('startDate')?.value;
             const endDate = document.getElementById('endDate')?.value;
             if (!startDate) { showToast("❌ Выберите дату начала"); return; }
+            if (!endDate && (modalType === 'trip' || modalType === 'vacation')) { showToast("❌ Укажите дату окончания"); return; }
             const formattedStartDate = startDate.split('-').reverse().join('.');
             let formattedEndDate = null;
             if (endDate) {
@@ -1662,6 +1680,12 @@
         
         window.closeModal = () => { modalType = null; render(); };
         window.toggleTheme = () => setDarkMode(!isDarkMode);
+        window.refreshData = async () => {
+            showToast('🔄 Обновление...');
+            await loadAllData();
+            render();
+            showToast('✅ Данные обновлены');
+        };
         window.logout = logout;
 
         window.openProfileModal = () => { modalType = 'profile'; render(); };
