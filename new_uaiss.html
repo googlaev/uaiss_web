@@ -172,6 +172,7 @@
         .sort-buttons { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
         .sort-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 30px; padding: 11px 18px; font-size: 13px; cursor: pointer; transition: all 0.2s; min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .sort-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .csv-banner { display:flex;align-items:center;gap:10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:14px;padding:10px 14px;margin-bottom:12px; }
         .context-menu { position: absolute; right: 0; top: calc(100% + 4px); background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,0.16); z-index: 151; min-width: 190px; overflow: hidden; animation: fadeIn 0.15s ease; }
         .context-menu-item { display: flex; align-items: center; gap: 8px; padding: 11px 14px; font-size: 13px; cursor: pointer; border: none; background: none; width: 100%; text-align: left; color: var(--text-primary); font-family: inherit; font-weight: 500; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .context-menu-item:active, .context-menu-item:hover { background: var(--bg-primary); }
@@ -239,6 +240,7 @@
         let modalType = null;
         let selectedExamType = null;
         let examMenuOpen = false;
+        let csvCachedFile = null;
         let statusFilter = 'all';
         let myExams = [];
         let myStatuses = [];
@@ -1073,6 +1075,15 @@
                         </div>
                     </div>
 
+                    ${csvCachedFile ? `
+                        <div class="csv-banner">
+                            <span style="font-size:22px;">📊</span>
+                            <span style="flex:1;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${csvCachedFile.name}</span>
+                            <button class="btn btn-primary" style="padding:7px 16px;font-size:13px;min-height:36px;flex-shrink:0;" onclick="window.openCsvFile()">Открыть</button>
+                            <button onclick="window.closeCsvBanner()" style="background:none;border:none;font-size:20px;color:var(--text-secondary);cursor:pointer;padding:4px;line-height:1;touch-action:manipulation;">✕</button>
+                        </div>
+                    ` : ''}
+
                     <div class="sort-buttons">
                         <button class="sort-btn ${examSortType === 'date_asc' ? 'active' : ''}" onclick="window.setExamSort('date_asc')">📅 Старые</button>
                         <button class="sort-btn ${examSortType === 'date_desc' ? 'active' : ''}" onclick="window.setExamSort('date_desc')">📅 Новые</button>
@@ -1554,21 +1565,32 @@
                 const d = new Date();
                 const filename = `exams_${String(d.getDate()).padStart(2,'0')}_${String(d.getMonth()+1).padStart(2,'0')}_${d.getFullYear()}.csv`;
                 const file = new File([blob], filename, { type: 'text/csv;charset=utf-8' });
-
-                if (navigator.canShare?.({ files: [file] })) {
-                    await navigator.share({ files: [file], title: 'Экзамены CSV' });
-                } else {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.href = url; a.download = filename;
-                    document.body.appendChild(a); a.click();
-                    document.body.removeChild(a); URL.revokeObjectURL(url);
-                    showToast('✅ CSV скачан');
-                }
+                csvCachedFile = file;
+                currentView = 'exams';
+                render(); // Показываем баннер «Открыть»
             } catch(e) {
                 hideProgress();
                 if (e?.name !== 'AbortError') showToast('❌ Ошибка: ' + (e?.message || 'соединения'));
             }
         };
+
+        window.openCsvFile = async () => {
+            if (!csvCachedFile) { showToast('⚠️ Файл не найден, скачайте снова'); return; }
+            try {
+                if (navigator.canShare?.({ files: [csvCachedFile] })) {
+                    await navigator.share({ files: [csvCachedFile], title: csvCachedFile.name });
+                } else {
+                    const url = URL.createObjectURL(csvCachedFile);
+                    const a = document.createElement('a'); a.href = url; a.download = csvCachedFile.name;
+                    document.body.appendChild(a); a.click();
+                    document.body.removeChild(a); URL.revokeObjectURL(url);
+                }
+            } catch(e) {
+                if (e?.name !== 'AbortError') showToast('❌ Ошибка: ' + (e?.message || ''));
+            }
+        };
+        window.closeCsvBanner = () => { csvCachedFile = null; render(); };
+
         window.setStatusFilter = (filter) => { statusFilter = filter; if (currentView !== 'management') currentView = 'management'; render(); };
         window.setStatusFilterAndGo = (filter) => { statusFilter = filter; currentView = 'management'; render(); };
         window.selectExamType = (id) => {
