@@ -1563,7 +1563,8 @@
 
                 const blob = new Blob(chunks, { type: 'text/csv;charset=utf-8' });
                 const d = new Date();
-                const filename = `exams_${String(d.getDate()).padStart(2,'0')}_${String(d.getMonth()+1).padStart(2,'0')}_${d.getFullYear()}.csv`;
+                const p = (n) => String(n).padStart(2,'0');
+                const filename = `exams_${p(d.getDate())}_${p(d.getMonth()+1)}_${d.getFullYear()}_${p(d.getHours())}_${p(d.getMinutes())}_${p(d.getSeconds())}.csv`;
                 const file = new File([blob], filename, { type: 'text/csv;charset=utf-8' });
                 csvCachedFile = file;
                 currentView = 'exams';
