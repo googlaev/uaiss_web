@@ -171,6 +171,9 @@
         .sort-buttons { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
         .sort-btn { background: var(--bg-primary); border: 1px solid var(--border); border-radius: 30px; padding: 11px 18px; font-size: 13px; cursor: pointer; transition: all 0.2s; min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .sort-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .context-menu { position: absolute; right: 0; top: calc(100% + 6px); background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); z-index: 151; min-width: 200px; overflow: hidden; animation: fadeIn 0.15s ease; }
+        .context-menu-item { display: flex; align-items: center; gap: 10px; padding: 14px 16px; font-size: 14px; cursor: pointer; border: none; background: none; width: 100%; text-align: left; color: var(--text-primary); font-family: inherit; font-weight: 500; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        .context-menu-item:active, .context-menu-item:hover { background: var(--bg-primary); }
         
         .toast { position: fixed; bottom: 80px; left: 16px; right: 16px; background: var(--bg-surface); color: var(--text-primary); padding: 12px 16px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 150; animation: slideUp 0.3s ease; text-align: center; font-weight: 500; }
         
@@ -234,6 +237,7 @@
         let loginError = null;
         let modalType = null;
         let selectedExamType = null;
+        let examMenuOpen = false;
         let statusFilter = 'all';
         let myExams = [];
         let myStatuses = [];
@@ -1056,7 +1060,16 @@
                 <div class="content">
                     <div class="card-header">
                         <div class="card-title">📋 Мои экзамены</div>
-                        <button class="btn btn-outline" onclick="window.changeView('add-exam')">+ Добавить</button>
+                        <div style="display:flex;gap:8px;align-items:center;position:relative;">
+                            <button class="btn btn-outline" onclick="window.changeView('add-exam')">+ Добавить</button>
+                            <button class="btn btn-outline btn-icon" onclick="window.toggleExamMenu(event)" style="font-size:22px;letter-spacing:-1px;">⋮</button>
+                            ${examMenuOpen ? `
+                                <div onclick="window.closeExamMenu()" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:150;"></div>
+                                <div class="context-menu">
+                                    <button class="context-menu-item" onclick="window.downloadExamsCSV()">📥 Скачать CSV все экзамены</button>
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
 
                     <div class="sort-buttons">
@@ -1486,7 +1499,26 @@
             if (loginInput && passwordInput) login(loginInput.value, passwordInput.value);
         };
 
-        window.changeView = (view) => { currentView = view; selectedExamType = null; modalType = null; adminModalType = null; render(); if (view === 'admin') loadAdminData(); };
+        window.changeView = (view) => { currentView = view; selectedExamType = null; modalType = null; adminModalType = null; examMenuOpen = false; render(); if (view === 'admin') loadAdminData(); };
+        window.toggleExamMenu = (e) => { e.stopPropagation(); examMenuOpen = !examMenuOpen; render(); };
+        window.closeExamMenu = () => { examMenuOpen = false; render(); };
+        window.downloadExamsCSV = async () => {
+            examMenuOpen = false; render();
+            try {
+                showToast('⏳ Формируется CSV...');
+                const response = await apiRequest('/exams/report/csv');
+                if (!response.ok) { showToast('❌ Ошибка загрузки'); return; }
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const d = new Date();
+                a.download = `exams_${String(d.getDate()).padStart(2,'0')}_${String(d.getMonth()+1).padStart(2,'0')}_${d.getFullYear()}.csv`;
+                document.body.appendChild(a); a.click();
+                document.body.removeChild(a); URL.revokeObjectURL(url);
+                showToast('✅ CSV успешно скачан');
+            } catch(e) { showToast('❌ Ошибка соединения'); }
+        };
         window.setStatusFilter = (filter) => { statusFilter = filter; if (currentView !== 'management') currentView = 'management'; render(); };
         window.setStatusFilterAndGo = (filter) => { statusFilter = filter; currentView = 'management'; render(); };
         window.selectExamType = (id) => {
