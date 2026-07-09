@@ -647,18 +647,34 @@ async def save_fcm_token(request: Request, current_user=Depends(get_current_user
 
 @app.post("/api/v1/notifications/test-push")
 async def test_push_notification(current_user=Depends(get_current_user)):
+    uid   = current_user["user_id"]
+    uname = current_user.get("full_name", "")
     def _delayed():
         time.sleep(30)
-        send_push_to_user(
-            current_user["user_id"],
-            "🔔 Тест UAISS",
-            "FCM работает! Уведомления приходят при закрытом приложении.",
-            {"view": "exams"}
-        )
+        title = "🔔 Тест UAISS"
+        body  = "FCM работает! Уведомления приходят при закрытом приложении."
+        send_push_to_user(uid, title, body, {"view": "exams"})
+        log_notification('test', title, body, user_id=uid, user_name=uname)
     thread = Thread(target=_delayed)
     thread.daemon = True
     thread.start()
     return {"status": "ok"}
+
+@app.delete("/api/v1/notifications/log/{notif_id}")
+async def delete_notification(notif_id: int, current_user=Depends(get_current_user)):
+    conn = get_db()
+    try:
+        if current_user["role"] == "admin":
+            conn.execute("DELETE FROM notification_logs WHERE id = ?", (notif_id,))
+        else:
+            conn.execute(
+                "DELETE FROM notification_logs WHERE id = ? AND (user_id = ? OR user_id IS NULL)",
+                (notif_id, current_user["user_id"])
+            )
+        conn.commit()
+        return {"status": "deleted"}
+    finally:
+        conn.close()
 
 @app.post("/api/v1/notifications/send")
 async def send_notifications_manual(current_user=Depends(get_current_user)):
