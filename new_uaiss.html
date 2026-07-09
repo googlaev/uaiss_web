@@ -1509,15 +1509,22 @@
                 const response = await apiRequest('/exams/report/csv');
                 if (!response.ok) { showToast('❌ Ошибка загрузки'); return; }
                 const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
                 const d = new Date();
-                a.download = `exams_${String(d.getDate()).padStart(2,'0')}_${String(d.getMonth()+1).padStart(2,'0')}_${d.getFullYear()}.csv`;
-                document.body.appendChild(a); a.click();
-                document.body.removeChild(a); URL.revokeObjectURL(url);
-                showToast('✅ CSV успешно скачан');
-            } catch(e) { showToast('❌ Ошибка соединения'); }
+                const filename = `exams_${String(d.getDate()).padStart(2,'0')}_${String(d.getMonth()+1).padStart(2,'0')}_${d.getFullYear()}.csv`;
+                const file = new File([blob], filename, { type: 'text/csv;charset=utf-8' });
+                if (navigator.canShare?.({ files: [file] })) {
+                    await navigator.share({ files: [file], title: 'Экзамены CSV' });
+                } else {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = filename;
+                    document.body.appendChild(a); a.click();
+                    document.body.removeChild(a); URL.revokeObjectURL(url);
+                    showToast('✅ CSV успешно скачан');
+                }
+            } catch(e) {
+                if (e?.name !== 'AbortError') showToast('❌ Ошибка: ' + (e?.message || 'соединения'));
+            }
         };
         window.setStatusFilter = (filter) => { statusFilter = filter; if (currentView !== 'management') currentView = 'management'; render(); };
         window.setStatusFilterAndGo = (filter) => { statusFilter = filter; currentView = 'management'; render(); };
