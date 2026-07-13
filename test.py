@@ -799,6 +799,47 @@ async def export_exams_report(current_user=Depends(get_current_user)):
     finally:
         conn.close()
 
+@app.get("/api/v1/exams/expiring")
+async def get_expiring_exams(current_user=Depends(get_current_user)):
+    conn = get_db()
+    try:
+        cursor = conn.execute("""
+            SELECT u.full_name, e.user_id, e.name AS exam_name, e.date AS exam_date,
+                   COALESCE(CAST(et.duration AS TEXT), e.duration) AS duration_months,
+                   COALESCE(et.emoji, '📚') AS emoji
+            FROM exams e
+            JOIN users u ON e.user_id = u.user_id
+            LEFT JOIN exam_types et ON e.name = et.name
+            WHERE e.id IN (SELECT MAX(id) FROM exams GROUP BY user_id, name)
+            ORDER BY e.date ASC
+        """)
+        rows = cursor.fetchall()
+        today = datetime.now().date()
+        cutoff = today + timedelta(days=30)
+        result = []
+        for row in rows:
+            try:
+                exam_date = datetime.strptime(row['exam_date'], '%d.%m.%Y').date()
+                months = int(row['duration_months']) if row['duration_months'] else 12
+                expires = exam_date + timedelta(days=months * 30)
+                days_left = (expires - today).days
+                if expires <= cutoff:
+                    result.append({
+                        'user_name': row['full_name'],
+                        'user_id': row['user_id'],
+                        'exam_name': row['exam_name'],
+                        'exam_date': row['exam_date'],
+                        'expires_at': expires.strftime('%d.%m.%Y'),
+                        'days_left': days_left,
+                        'emoji': row['emoji']
+                    })
+            except Exception:
+                continue
+        result.sort(key=lambda x: x['days_left'])
+        return result
+    finally:
+        conn.close()
+
 @app.get("/api/v1/exams/my")
 async def get_my_exams(current_user=Depends(get_current_user)):
     conn = get_db()
