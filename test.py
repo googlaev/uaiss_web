@@ -220,27 +220,6 @@ def check_and_fix_database():
         cursor.execute("ALTER TABLE exams ADD COLUMN last_notification_day INTEGER DEFAULT 0")
         print("✅ Колонка last_notification_day добавлена")
     
-    def hash_password(pwd):
-        return hashlib.sha256(pwd.encode()).hexdigest()
-    
-    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'коваленко'")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO users (full_name, login, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
-                       ("Коваленко Александр Викторович", "коваленко", hash_password("123456"), "employee", "kovalenko@example.com"))
-        print("✅ Добавлен: коваленко / 123456")
-    
-    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'морозова'")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO users (full_name, login, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
-                       ("Екатерина Морозова", "морозова", hash_password("admin123"), "admin", "morozova@example.com"))
-        print("✅ Добавлен: морозова / admin123")
-    
-    cursor.execute("SELECT COUNT(*) FROM users WHERE login = 'смирнов'")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO users (full_name, login, password_hash, role, email) VALUES (?, ?, ?, ?, ?)",
-                       ("Алексей Смирнов", "смирнов", hash_password("123456"), "employee", "smirnov@example.com"))
-        print("✅ Добавлен: смирнов / 123456")
-    
     conn.commit()
     conn.close()
 
@@ -257,11 +236,6 @@ def check_and_fix_database():
     conn2.close()
 
     print("\n✅ База данных готова к работе!")
-    print("\n🔑 Тестовые учетные записи:")
-    print("   Сотрудник:   логин: коваленко / пароль: 123456")
-    print("   Сотрудник:   логин: смирнов / пароль: 123456")
-    print("   Администратор: логин: морозова / пароль: admin123")
-    print()
     return True
 
 def get_db():
