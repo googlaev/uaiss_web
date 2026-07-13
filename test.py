@@ -5,7 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
 import sqlite3
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from calendar import monthrange
 import hashlib
 import jwt
@@ -432,16 +432,19 @@ def send_push_to_user(user_id: str, title: str, body: str, data: dict = None):
     for (token,) in rows:
         send_fcm_push(token, title, body, data)
 
+YEKATERINBURG = timezone(timedelta(hours=5))
+
 def log_notification(type_: str, title: str, body: str,
                      user_id: str = None, user_name: str = None,
                      sent_by: str = 'system', sent_by_name: str = 'Система'):
     try:
         conn = sqlite3.connect(CONFIG['database']['path'])
+        now_str = datetime.now(YEKATERINBURG).strftime('%Y-%m-%d %H:%M:%S')
         conn.execute(
             """INSERT INTO notification_logs
-               (type, title, body, user_id, user_name, sent_by, sent_by_name)
-               VALUES (?,?,?,?,?,?,?)""",
-            (type_, title, body, user_id, user_name, sent_by, sent_by_name)
+               (type, title, body, user_id, user_name, sent_by, sent_by_name, sent_at)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (type_, title, body, user_id, user_name, sent_by, sent_by_name, now_str)
         )
         conn.commit()
         conn.close()
@@ -647,8 +650,11 @@ async def save_fcm_token(request: Request, current_user=Depends(get_current_user
 
 @app.post("/api/v1/notifications/test-push")
 async def test_push_notification(current_user=Depends(get_current_user)):
-    uid   = current_user["user_id"]
-    uname = current_user.get("full_name", "")
+    uid = current_user["user_id"]
+    conn = get_db()
+    row = conn.execute("SELECT full_name FROM users WHERE user_id = ?", (uid,)).fetchone()
+    conn.close()
+    uname = row['full_name'] if row else ''
     def _delayed():
         time.sleep(30)
         title = "🔔 Тест UAISS"
