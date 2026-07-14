@@ -49,7 +49,7 @@ EXAM_TYPES = [
     "id": 3015,
     "name": "ПП",
     "duration": 36,
-    "emoji": "🚒"
+    "emoji": "🚑"
   },
   {
     "id": 3016,
