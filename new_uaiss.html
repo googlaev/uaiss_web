@@ -231,11 +231,7 @@
 <body>
     <div id="root"></div>
     <script>
-        // Эта копия собирается в Android APK через Capacitor (webDir: www), поэтому,
-        // в отличие от new_uaiss.html (который FastAPI отдаёт с того же домена, что и API —
-        // там относительный путь работает), здесь нужен АБСОЛЮТНЫЙ адрес бэкенда.
-        // Перед сборкой APK замените на реальный домен/IP сервера.
-        const API_BASE = 'https://ВАШ-ДОМЕН/api/v1';
+        const API_BASE = '/api/v1';
         let isAuthenticated = false;
         let currentUser = null;
         let authToken = localStorage.getItem('authToken');

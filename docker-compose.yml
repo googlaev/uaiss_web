@@ -1,23 +1,22 @@
 services:
-  backend:
+  web:
     build: .
-    container_name: uaiss-backend
+    container_name: uaiss_web_app
     ports:
       - "8000:8000"
-    volumes:
-      # config.json и exams.db живут вне образа, чтобы секреты (SMTP/MAX токен)
-      # и данные не пересобирались/не терялись при docker compose build.
-      # Перед первым запуском: скопируйте config.example.json -> config.json
-      # и создайте пустой exams.db (см. docs/SETUP.md, раздел Docker).
-      - ./config.json:/app/config.json
-      - ./exams.db:/app/exams.db
     environment:
-      - PYTHONUNBUFFERED=1
-      - PYTHONIOENCODING=UTF-8
+      - TZ=Europe/Moscow
+    volumes:
+      - ./exams.db:/app/exams.db
+      - ./config.json:/app/config.json
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json
+      - /etc/localtime:/etc/localtime:ro
+    cap_add:
+      - SYS_TIME
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    network_mode: bridge
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

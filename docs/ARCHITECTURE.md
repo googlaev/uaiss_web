@@ -20,7 +20,7 @@
                         │ Authorization: Bearer <JWT>
 ┌───────────────────────▼──────────────────────────────────┐
 │                    Бэкенд (FastAPI)                        │
-│           test_py_original.py  │  PORT 8000               │
+│           test.py  │  PORT 8000               │
 │                                │                          │
 │   ┌─────────────────┐   ┌──────▼────────────────┐        │
 │   │   APScheduler   │   │   SQLite3 (exams.db)  │        │
@@ -88,15 +88,16 @@
 - Письма за 30, 7, 3, 2, 1 день до истечения экзамена + при просрочке
 - Gmail SMTP (smtp.gmail.com:587 + STARTTLS)
 
-**Push (FCM)** — опциональный канал (не активирован в основном коде):
-- Код находится в `backend_fcm_patch.py` и `backend_push_additions.py`
-- Требует `serviceAccountKey.json` от Firebase-проекта `uaiss-4862a`
-- Мобильное приложение поддерживает регистрацию FCM-токена и локальные нотификации
+**Push (FCM)** — активный канал наряду с email и MAX:
+- `firebase_admin` инициализируется при старте `test.py` из `serviceAccountKey.json` (Firebase-проект `uaiss-4862a`); без файла — не падает, просто пишет предупреждение и push молча не работает
+- Токены устройств копятся в `fcm_tokens` (`POST /fcm-token`), шлются через `send_push_to_user()`/`send_fcm_push()`, параллельно email/MAX в `check_and_send_notifications_sync()`
+- Плюс ручные `/notifications/test-push` (себе) и `/notifications/broadcast` (admin, всем/выбранным)
+- `backend_fcm_patch.py`/`backend_push_additions.py` в корне — черновики из более ранней стадии этой же разработки, не используются
 
 **MAX** — дополнительный канал (мессенджер MAX, botapi.max.ru), по тем же порогам дней и в том же ежедневном прогоне, что и email:
 - Привязать аккаунт можно тремя способами: (1) открыть **мини-приложение UAISS внутри MAX** и один раз войти по логину/паролю — привязка происходит автоматически по подписи `initData`; (2) в веб/APK-профиле → «Привязать MAX» → одноразовый код → отправить боту `/link КОД`; (3) сразу написать боту `/фио ...`
 - Код/ФИО-привязку обрабатывает фоновый поток внутри самого бэкенда (long polling `botapi.max.ru/updates`, запускается `start_max_bot()` при старте FastAPI-приложения) — отдельный процесс не нужен, пишет `max_chat_id` в таблицу `users`
-- Бэкенд (`test_py_original.py`) отправляет напоминания через `send_max_message()` в той же функции `check_and_send_notifications_sync()`, что и email — по расписанию APScheduler (ежедневно) и при ручном запуске `/api/v1/notifications/send` или `/api/v1/max/notifications/send`
+- Бэкенд (`test.py`) отправляет напоминания через `send_max_message()` в той же функции `check_and_send_notifications_sync()`, что и email — по расписанию APScheduler (ежедневно) и при ручном запуске `/api/v1/notifications/send` или `/api/v1/max/notifications/send`
 - Настройки — секция `max` в `config.json` (`enabled`, `token`, `api_url`, `bot_username`)
 
 **Мини-приложение MAX** — та же SPA (`www/index.html`), что и в APK, отдаётся бэкендом по `/maxapp/` (см. `docs/BACKEND.md`, раздел «MAX-уведомления и мини-приложение»). Регистрируется в `business.max.ru/self` как мини-апп бота.
@@ -108,7 +109,7 @@
 | Роль | Возможности |
 |------|------------|
 | `employee` | Свои экзамены, свои статусы, смена пароля/email |
-| `admin` | Всё то же + просмотр всех сотрудников, CSV-выгрузка, ручной запуск уведомлений |
+| `admin` | Всё то же + просмотр всех сотрудников, CSV-выгрузка, ручной запуск уведомлений, полный CRUD пользователей/экзаменов/статусов/типов экзаменов (`/admin/*`), push-рассылка (`/notifications/broadcast`) |
 
 ---
 
@@ -116,34 +117,38 @@
 
 ```
 C:\edu\appUAISS\
+├── test.py                  # Весь бэкенд (FastAPI) — имя модуля жёстко зашито
+│                             #   в Dockerfile (COPY test.py, CMD uvicorn test:app)
+├── new_uaiss.html            # SPA: весь UI + JS-логика, отдаётся бэкендом на "/" и "/maxapp/"
 ├── www/
-│   └── index.html          # SPA: весь UI + JS-логика (132 КБ)
-├── android/                # Android-проект (Capacitor native shell)
+│   └── index.html            # Копия new_uaiss.html с абсолютным API_BASE — источник
+│                              #   для Capacitor-сборки Android (webDir: www); держать в синхроне
+├── android/                 # Android-проект (Capacitor native shell)
 │   ├── app/
 │   │   ├── src/main/
 │   │   │   └── AndroidManifest.xml
 │   │   ├── google-services.json   # Firebase конфиг (проект uaiss-4862a)
 │   │   └── build.gradle
 │   └── variables.gradle    # minSdk:24, compileSdk:36
-├── test_py_original.py     # Весь бэкенд (FastAPI, 1098 строк)
-├── config.json             # Конфиг бэкенда (создаётся автоматически)
-├── exams1.db               # SQLite БД (текущая, production)
-├── capacitor.config.json   # Конфиг Capacitor
-├── package.json            # Node-зависимости (Capacitor)
-├── backend_fcm_patch.py    # Инструкция по интеграции FCM
-├── backend_push_additions.py # Вспомогательные FCM-функции (не подключены)
+├── config.json              # Конфиг бэкенда (создаётся автоматически, НЕ в git — секреты)
+├── exams.db                 # SQLite БД (production, НЕ в git)
+├── serviceAccountKey.json   # Приватный ключ Firebase (НЕ в git), нужен для FCM push
+├── capacitor.config.json    # Конфиг Capacitor
+├── package.json             # Node-зависимости (Capacitor)
 ├── quiz_bot.py               # Исходный пример MAX-бота (не используется в проде, справочно)
-├── Dockerfile               # Образ бэкенда (только test_py_original.py + зависимости)
-├── docker-compose.yml       # Сборка и запуск контейнера, volume для config.json/exams.db
-├── config.example.json      # Шаблон config.json без реальных секретов
-└── docs/                   # Эта документация
+├── Dockerfile                # Образ бэкенда: python:3.11-slim + ntpdate, COPY test.py + new_uaiss.html
+├── docker-compose.yml        # Сервис "web" (container_name uaiss_web_app), volume для
+│                              #   exams.db/config.json/serviceAccountKey.json, cap_add SYS_TIME
+├── config.example.json       # Шаблон config.json без реальных секретов
+└── docs/                    # Эта документация
 ```
 
 ---
 
 ## Продакшен
 
-- Бэкенд развёрнут по адресу: `https://bot.codle.ru`
-- Фронтенд hardcode'ит этот адрес в `www/index.html:230` (`const SERVER_URL`)
-- Деплой: `Dockerfile` + `docker-compose.yml` (см. `docs/SETUP.md`, раздел «Docker»); TLS/домен — через внешний реверс-прокси, контейнер слушает `:8000` изнутри
+- Бэкенд развёрнут по адресу: `https://bot.codle.ru` (контейнер слушает `:8000` изнутри, TLS/домен — через внешний реверс-прокси)
+- Боевой фронтенд (`new_uaiss.html`) ходит на API по относительному пути `/api/v1` — тот же домен, с которого отдана страница
+- Деплой: `Dockerfile` + `docker-compose.yml` (см. `docs/SETUP.md`, раздел «Docker»); контейнер называется `uaiss_web_app`, сервис в compose — `web`
 - CI/CD **не обнаружено** — сборка и запуск образа ручные (`docker compose up -d --build`)
+- Сервер синхронизирует время по NTP при каждом старте контейнера (`ntpdate -u pool.ntp.org`, нужен `cap_add: SYS_TIME`) — критично для корректного срабатывания планировщика уведомлений

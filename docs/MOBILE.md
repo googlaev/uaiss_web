@@ -1,9 +1,9 @@
 # UAISS — Мобильное приложение
 
-**Тип:** Hybrid App (Capacitor 8.4.1 + Vanilla JS SPA)  
-**Платформа:** Android (min API 24 / Android 7.0)  
-**App ID:** `ru.uaiss.mobile`  
-**Основной файл:** `www/index.html` (~132 КБ, весь UI и логика в одном файле)
+**Тип:** Hybrid App (Capacitor 8.4.1 + Vanilla JS SPA)
+**Платформа:** Android (min API 24 / Android 7.0)
+**App ID:** `ru.uaiss.mobile`
+**Основной файл:** `new_uaiss.html` (~140 КБ, весь UI и логика в одном файле) — для сборки Android APK используется его копия `www/index.html` (см. `docs/ARCHITECTURE.md`, карта директорий)
 
 ---
 
@@ -12,20 +12,21 @@
 Приложение — **Single Page Application** без фреймворка. Весь JavaScript написан вручную в `<script>` теге `index.html`. Рендеринг — через `innerHTML` центрального `render()`. Никаких React/Vue/Angular.
 
 ```
-www/index.html
+new_uaiss.html / www/index.html
 ├── <style>        CSS-переменные, dark/light темы, компоненты
-├── <div id="app"> Корневой элемент для рендеринга
+├── <div id="root"> Корневой элемент для рендеринга
 └── <script>       Вся бизнес-логика и UI (единый блок)
-    ├── Конфигурация (SERVER_URL, API_BASE)
+    ├── Конфигурация (API_BASE — относительный в new_uaiss.html, абсолютный в www/index.html)
     ├── Состояние (let-переменные)
     ├── apiRequest() — fetch-обёртка с JWT
     ├── Функции работы с данными (login, loadAllData, addExam, ...)
     ├── render() — главная функция рендеринга
     ├── Обработчики событий (window.* функции)
-    ├── initPushNotifications()
-    ├── initLocalNotifications()
-    └── Инициализация приложения
+    ├── tryMaxWebAppAutoLogin() — автовход при открытии внутри мини-аппа MAX
+    └── Инициализация приложения (initApp())
 ```
+
+> В реальном фронтенде нет функций `initPushNotifications()`/`initLocalNotifications()` — FCM-токен устройства на сервер (`POST /fcm-token`) пока не отправляется из `new_uaiss.html`/`www/index.html`; это открытый пробел, не решённый в рамках текущей версии (см. `docs/TODO.md`).
 
 ---
 
@@ -107,23 +108,25 @@ initLocalNotifications()          // инициализирует Android-кан
 
 ## Работа с API
 
-**Точка входа** (строка 230 `www/index.html`):
+**Точка входа** (`www/index.html`, используется только Android-сборкой):
 ```javascript
-const SERVER_URL = 'https://bot.codle.ru';
-const API_BASE = SERVER_URL + '/api/v1';
+const API_BASE = 'https://ВАШ-ДОМЕН/api/v1';
 ```
 
-Для локальной разработки эту строку нужно поменять. Варианты:
+Capacitor-приложение грузит бандл локально (не с бэкенда), поэтому, в отличие от `new_uaiss.html` (который FastAPI отдаёт с того же домена — там путь относительный), здесь нужен абсолютный адрес. Перед сборкой APK замените на актуальный:
 
 ```javascript
 // Эмулятор Android
-const SERVER_URL = 'http://10.0.2.2:8000';
+const API_BASE = 'http://10.0.2.2:8000/api/v1';
 
 // Реальное устройство по USB (нужен adb reverse tcp:8000 tcp:8000)
-const SERVER_URL = 'http://localhost:8000';
+const API_BASE = 'http://localhost:8000/api/v1';
 
 // Реальное устройство по WiFi
-const SERVER_URL = 'http://192.168.x.x:8000';
+const API_BASE = 'http://192.168.x.x:8000/api/v1';
+
+// Прод
+const API_BASE = 'https://bot.codle.ru/api/v1';
 ```
 
 **Заголовки каждого запроса:**
@@ -140,29 +143,15 @@ headers: {
 
 ### FCM (облачные push)
 
-Инициализируется через `@capacitor/push-notifications`:
-1. Запрашивает разрешение у пользователя
-2. Получает FCM-токен
-3. Отправляет токен на бэкенд `POST /api/v1/fcm-token` (если эндпоинт активирован)
-4. Слушает входящие push-события (открытие нужного экрана через `data.view`)
+Бэкенд полностью реализует отправку (`firebase_admin`, см. `docs/BACKEND.md`), но в текущей версии `new_uaiss.html`/`www/index.html` **нет** кода, который запрашивает разрешение, получает FCM-токен устройства и шлёт его на `POST /api/v1/fcm-token` — этот клиентский кусок не реализован (пробел, см. `docs/TODO.md`). Раньше это планировалось через `@capacitor/push-notifications`, но в репозитории этот путь не подключён.
 
 ### Local Notifications
 
-Через `@capacitor/local-notifications`:
-- Инициализирует Android-канал `uaiss_exams` при старте
-- Позволяет планировать уведомления на устройстве (работает без сети)
-- Тест: уведомление через 30 секунд при нажатии кнопки
+`@capacitor/local-notifications` указан в `package.json` как зависимость, но, как и с push, вызывающего JS-кода в `new_uaiss.html`/`www/index.html` сейчас нет — планировалось, не подключено.
 
 ### MAX (мессенджер)
 
-Веб-интерфейс (`www/index.html`, тот же код что и в APK) добавляет привязку MAX-аккаунта прямо в модалке профиля («👤 Личный кабинет» → карточка «💬 Уведомления в MAX»):
-
-- `MaxLinkSection()` — рендерит состояние: не настроено на сервере / не привязано / показан код / привязано
-- `window.loadMaxStatus()` — `GET /api/v1/max/status`, вызывается при открытии профиля
-- `window.generateMaxLinkCode()` — `POST /api/v1/max/link-code`, показывает код и инструкцию отправить боту `/link КОД`
-- `window.unlinkMax()` — `DELETE /api/v1/max/link`
-
-Фактическую доставку уведомлений и обработку `/link КОД`/`/фио` делает фоновый поток внутри бэкенда (см. `docs/BACKEND.md`) — в мобильном приложении отдельного кода для MAX нет, всё идёт через тот же REST API, что и остальной функционал.
+Способ привязки аккаунта из мобильного приложения — тот же, что и в мини-аппе: один раз войти по логину/паролю, пока приложение открыто внутри MAX (см. `docs/BACKEND.md`, раздел «MAX-уведомления и мини-приложение»). Отдельной UI-карточки «Привязать MAX» (с кнопкой получения кода `/max/link-code`, статусом `/max/status`, отвязкой `/max/link`) в текущем `new_uaiss.html` нет, хотя сами эти эндпоинты на бэкенде есть — это открытый пробел для тех, кто хочет привязаться без входа в мини-апп (например, через `/link КОД` или `/фио` боту напрямую, без визуального помощника в приложении).
 
 ---
 
@@ -238,7 +227,7 @@ REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
 ## Сборка APK
 
 ```bash
-# 1. Обновить www/index.html (SERVER_URL на нужный адрес)
+# 1. Обновить www/index.html (API_BASE на нужный адрес)
 # 2. Синхронизировать веб-ресурсы с Android-проектом
 npx cap sync
 

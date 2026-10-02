@@ -47,7 +47,7 @@ requests
 
 ```bash
 cd C:\edu\appUAISS
-python test_py_original.py
+python test.py
 ```
 
 **При первом запуске произойдёт:**
@@ -110,7 +110,7 @@ http://localhost:8000
 }
 ```
 
-3. Перезапустить бэкенд (`python test_py_original.py`) — приём входящих сообщений бота (`/link`, `/фио`) запускается автоматически в фоновом потоке того же процесса, отдельно ничего запускать не нужно.
+3. Перезапустить бэкенд (`python test.py`) — приём входящих сообщений бота (`/link`, `/фио`) запускается автоматически в фоновом потоке того же процесса, отдельно ничего запускать не нужно.
 
 4. Привязать аккаунт — три способа:
    - **Мини-приложение MAX**: открыть мини-апп и один раз войти по логину/паролю — привязка происходит сама (см. шаг 5)
@@ -119,7 +119,7 @@ http://localhost:8000
 
 ### Регистрация мини-приложения MAX
 
-Бэкенд уже отдаёт мини-апп по адресу `<ваш-домен>/maxapp/` (статика из `www/index.html` — та же SPA, что и в APK; монтируется автоматически при старте, если папка `www/` существует рядом с `test_py_original.py`). Чтобы его увидели в MAX:
+Бэкенд уже отдаёт мини-апп по адресу `<ваш-домен>/maxapp/` — это тот же `new_uaiss.html`, который и так лежит в корне рядом с `test.py` (см. `root()`/`max_mini_app()` в `test.py`), никакой отдельной сборки не требуется. Чтобы его увидели в MAX:
 
 1. Откройте `business.max.ru/self` (или мини-апп «MAX для бизнеса») → **Чат-боты** → выберите вашего бота
 2. **⋮** → **Настройки** → вставьте URL: `https://<ваш-домен>/maxapp/` (обязательно HTTPS, без localhost)
@@ -131,26 +131,9 @@ http://localhost:8000
 
 ## 3. Запуск веб-интерфейса в браузере
 
-Открыть `www/index.html` напрямую **не получится** — нужен веб-сервер из-за fetch-запросов.
+`new_uaiss.html` уже лежит в корне проекта и его **уже отдаёт** запущенный бэкенд: `GET /` и `GET /maxapp/` оба возвращают этот файл, и `API_BASE` в нём относительный (`/api/v1`), так что достаточно просто открыть `http://localhost:8000/` — отдельный веб-сервер не нужен.
 
-**Вариант A:** FastAPI отдаёт статику сам (если положить `index.html` рядом с `test_py_original.py`):
-```bash
-# Сейчас GET / возвращает new_uaiss.html (если существует)
-# Переименуйте www/index.html → new_uaiss.html в корне проекта, тогда:
-# http://localhost:8000/ откроет приложение
-```
-
-**Вариант B:** Простой HTTP-сервер:
-```bash
-cd C:\edu\appUAISS\www
-python -m http.server 3000
-# Открыть http://localhost:3000
-```
-
-**Перед этим** измените `SERVER_URL` в `www/index.html` (строка 230):
-```javascript
-const SERVER_URL = 'http://localhost:8000';
-```
+Открывать файл напрямую (`file://...`) **не получится** — нужен веб-сервер из-за fetch-запросов.
 
 ---
 
@@ -163,20 +146,23 @@ cd C:\edu\appUAISS
 npm install
 ```
 
-### Настройка SERVER_URL для устройства
+### Настройка API_BASE для устройства
 
-В `www/index.html` строка 230 — выберите нужный адрес:
+Capacitor-сборка берёт файлы из `www/` (`webDir` в `capacitor.config.json`), и этот `www/index.html` — отдельная копия `new_uaiss.html` с **абсолютным** `API_BASE` (приложение грузится локально в webview, не с бэкенда, поэтому относительный путь не сработает). Перед сборкой отредактируйте `www/index.html`:
 
 ```javascript
 // Эмулятор Android Studio
-const SERVER_URL = 'http://10.0.2.2:8000';
+const API_BASE = 'http://10.0.2.2:8000/api/v1';
 
 // Реальное устройство по USB (требует adb reverse)
 // В терминале: adb reverse tcp:8000 tcp:8000
-const SERVER_URL = 'http://localhost:8000';
+const API_BASE = 'http://localhost:8000/api/v1';
 
 // Реальное устройство по WiFi
-const SERVER_URL = 'http://192.168.X.X:8000';  // IP вашего ПК в сети
+const API_BASE = 'http://192.168.X.X:8000/api/v1';  // IP вашего ПК в сети
+
+// Прод
+const API_BASE = 'https://bot.codle.ru/api/v1';
 ```
 
 ### Синхронизация и запуск
@@ -207,14 +193,14 @@ npx cap open android
 
 ### Файлы
 
-- `Dockerfile` — образ на `python:3.12-slim`, ставит `requirements.txt`, копирует `test_py_original.py` и `www/` (нужна для мини-приложения MAX, отдаётся по `/maxapp/`)
-- `docker-compose.yml` — сборка + запуск, порт `8000:8000`, монтирует `config.json` и `exams.db` с хоста внутрь контейнера (чтобы секреты и данные не попадали в образ и не терялись при пересборке)
+- `Dockerfile` — образ на `python:3.11-slim` + `ntpsec-ntpdate`/`tzdata` (TZ=Europe/Moscow), ставит `requirements.txt`, копирует `test.py` и `new_uaiss.html` (его же отдаёт и `/maxapp/` — отдельный файл для мини-аппа не нужен); запуск: `ntpdate -u pool.ntp.org || true && uvicorn test:app`
+- `docker-compose.yml` — сервис `web` (`container_name: uaiss_web_app`), порт `8000:8000`, монтирует с хоста `exams.db`, `config.json`, `serviceAccountKey.json` и `/etc/localtime` (чтобы секреты/данные/ключ не попадали в образ и не терялись при пересборке), `cap_add: SYS_TIME` для `ntpdate`
 - `config.example.json` — шаблон конфигурации без реальных секретов
 
 ### Первый запуск
 
 ```bash
-# 1. Подготовить config.json (если ещё не создан локальным запуском python test_py_original.py)
+# 1. Подготовить config.json (если ещё не создан локальным запуском python test.py)
 cp config.example.json config.json     # Linux/macOS
 copy config.example.json config.json   # Windows PowerShell/cmd
 
@@ -222,13 +208,19 @@ copy config.example.json config.json   # Windows PowerShell/cmd
 touch exams.db                          # Linux/macOS
 New-Item -ItemType File exams.db        # Windows PowerShell
 
+# 2b. serviceAccountKey.json тоже должен существовать на хосте (нужен для FCM push) —
+#     пустой {} сойдёт, если FCM не нужен: Firebase Admin SDK просто не инициализируется,
+#     приложение не падает, просто предупреждает в логах.
+echo "{}" > serviceAccountKey.json      # Linux/macOS
+Set-Content serviceAccountKey.json '{}' # Windows PowerShell
+
 # 3. Отредактировать config.json: SMTP, при желании max.enabled/max.token (см. раздел 2 выше)
 
 # 4. Собрать и запустить
 docker compose up -d --build
 ```
 
-> Оба файла (`config.json`, `exams.db`) должны существовать на хосте **до** первого `docker compose up` — Docker создаёт директорию вместо файла для отсутствующего bind-mount источника, что ломает и JSON-конфиг, и sqlite.
+> **Важно:** `config.json`, `exams.db` и `serviceAccountKey.json` — все три — должны существовать на хосте **до** первого `docker compose up`/пересоздания контейнера. Если файла нет, Docker подставит на его место пустую **директорию** вместо файла — бэкенд упадёт с `IsADirectoryError`. Это особенно легко словить после `git pull`, если merge/checkout удалил один из этих файлов с диска (они намеренно не в git, см. `.gitignore`) — тогда перед следующим `docker compose up` проверьте `ls -la config.json exams.db serviceAccountKey.json` и при необходимости восстановите файл, прежде чем поднимать контейнер.
 
 ### Проверка и управление
 
@@ -262,7 +254,7 @@ MAX-бот (`/link`, `/фио`) стартует внутри контейнер
 
 ```bash
 # Пересоздать БД с нуля (удалить и перезапустить)
-del exams.db && python test_py_original.py
+del exams.db && python test.py
 
 # Проверить текущие записи в БД
 sqlite3 exams.db "SELECT * FROM users;"
