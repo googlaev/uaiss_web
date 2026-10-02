@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "85171952119",
+    "project_id": "uaiss-4862a",
+    "storage_bucket": "uaiss-4862a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:85171952119:android:e289f0f2980e7c927a76f2",
+        "android_client_info": {
+          "package_name": "ru.uaiss.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDAWMliG2BMKcykOeeQ_G5uuVWx2HjYI4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,40 @@
+{
+    "smtp": {
+        "host": "smtp.gmail.com",
+        "port": 587,
+        "user": "your-email@gmail.com",
+        "password": "your-gmail-app-password",
+        "use_tls": true
+    },
+    "notifications": {
+        "enabled": true,
+        "send_time_hour": 9,
+        "send_time_minute": 0,
+        "notify_days": [30, 7, 3, 2, 1],
+        "notify_expired": true
+    },
+    "max": {
+        "enabled": false,
+        "token": "",
+        "api_url": "https://botapi.max.ru",
+        "bot_username": "",
+        "link_code_ttl_minutes": 15,
+        "allow_name_link": true
+    },
+    "server": {
+        "host": "0.0.0.0",
+        "port": 8000,
+        "reload": false
+    },
+    "database": {
+        "path": "exams.db"
+    },
+    "auth": {
+        "token_expire_hours": 8,
+        "jwt_secret_key": "CHANGE_ME_generate_with_python_-c_import_secrets;print(secrets.token_hex(32))"
+    },
+    "app": {
+        "name": "UAISS Web API",
+        "version": "1.0.0"
+    }
+}

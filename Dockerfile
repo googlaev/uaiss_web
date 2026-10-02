@@ -1,20 +1,17 @@
-FROM python:3.11-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ntpsec-ntpdate tzdata \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV TZ=Europe/Moscow
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+FROM python:3.12-slim
 
 WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONIOENCODING=UTF-8 \
+    PYTHONDONTWRITEBYTECODE=1
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY test.py .
-COPY new_uaiss.html .
+COPY test_py_original.py .
+COPY www ./www
 
 EXPOSE 8000
 
-CMD sh -c "ntpdate -u pool.ntp.org || true && uvicorn test:app --host 0.0.0.0 --port 8000"
+CMD ["python", "test_py_original.py"]

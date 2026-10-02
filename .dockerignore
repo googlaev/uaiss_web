@@ -1,0 +1,14 @@
+.git
+android
+node_modules
+docs
+*.md
+config.json
+exams.db
+exams1.db
+config_test.json
+exams_test_copy.db
+__pycache__
+*.pyc
+backend_fcm_patch.py
+backend_push_additions.py

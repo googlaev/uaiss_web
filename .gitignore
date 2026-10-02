@@ -1,0 +1,28 @@
+# Секреты и реальные данные (не коммитим, см. config.example.json)
+config.json
+_tmp_config.json
+config_test.json
+exams.db
+exams1.db
+exams_test_copy.db
+*.db-journal
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node / Capacitor
+node_modules/
+
+# Android / Gradle build-артефакты (у android/ есть и свой .gitignore)
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+*.aab
+
+# Логи, временные файлы
+*.log

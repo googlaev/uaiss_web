@@ -1,0 +1,21 @@
+{
+  "name": "uaiss-mobile",
+  "version": "1.0.0",
+  "description": "UAISS Mobile - Управление экзаменами и статусами",
+  "private": true,
+  "scripts": {
+    "build": "echo \"No build step required\"",
+    "android": "npx cap open android",
+    "sync": "npx cap sync"
+  },
+  "dependencies": {
+    "@capacitor-community/file-opener": "^8.0.1",
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/local-notifications": "^8.2.0",
+    "@capacitor/push-notifications": "^8.1.1",
+    "@capacitor/share": "^8.0.1"
+  }
+}

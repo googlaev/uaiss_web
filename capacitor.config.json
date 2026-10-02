@@ -1,0 +1,19 @@
+{
+  "appId": "ru.uaiss.mobile",
+  "appName": "UAISS",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#1A56DB",
+      "showSpinner": false
+    }
+  }
+}

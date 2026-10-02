@@ -1,6 +1,7 @@
-fastapi==0.104.1
-uvicorn==0.24.0
-pyjwt==2.8.0
-python-multipart==0.0.6
-apscheduler==3.10.4
-firebase-admin==6.5.0
+fastapi
+uvicorn[standard]
+pydantic
+PyJWT
+python-multipart
+apscheduler
+requests
