@@ -291,7 +291,19 @@
             const headers = { 'Content-Type': 'application/json', ...options.headers };
             if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
             const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
-            if (response.status === 401) { logout(); throw new Error('Сессия истекла'); }
+            if (response.status === 401) {
+                logout();
+                // Внутри MAX токен истекает незаметно для пользователя — пробуем
+                // бесшумно войти заново по initData и повторить тот же запрос,
+                // вместо того чтобы сразу выкидывать на экран входа.
+                const autoLogged = await tryMaxWebAppAutoLogin();
+                if (autoLogged) {
+                    const retryHeaders = { 'Content-Type': 'application/json', ...options.headers, 'Authorization': `Bearer ${authToken}` };
+                    const retryResponse = await fetch(`${API_BASE}${endpoint}`, { ...options, headers: retryHeaders });
+                    if (retryResponse.status !== 401) return retryResponse;
+                }
+                throw new Error('Сессия истекла');
+            }
             return response;
         }
 
@@ -1988,8 +2000,11 @@
                 });
                 if (response.status === 401 || response.status === 403) {
                     logout();
-                    showToast('❌ Сессия истекла. Войдите заново.');
-                    render();
+                    const autoLogged = await tryMaxWebAppAutoLogin();
+                    if (!autoLogged) {
+                        showToast('❌ Сессия истекла. Войдите заново.');
+                        render();
+                    }
                     return;
                 }
                 if (!response.ok) throw new Error('server_error');

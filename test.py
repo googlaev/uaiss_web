@@ -479,7 +479,7 @@ def check_and_send_notifications_sync():
     notifications_sent = 0
     
     cursor.execute("""
-        SELECT u.user_id, u.full_name, u.email, u.max_chat_id,
+        SELECT u.user_id, u.full_name, u.email, u.max_chat_id, u.max_user_id,
                e.id as exam_id, e.name as exam_name,
                e.date as exam_date, e.duration,
                e.last_notification_day
@@ -530,7 +530,7 @@ http://localhost:{CONFIG['server']['port']}
                         f"Пожалуйста, продлите его в приложении UAISS."
                     )
                     email_ok = send_email(row['email'], subject, body) if row['email'] else False
-                    max_ok = send_max_message(row['max_chat_id'], max_text) if row['max_chat_id'] else False
+                    max_ok = send_max_message(row['max_chat_id'], max_text, user_id=row['max_user_id']) if row['max_chat_id'] else False
                     if email_ok or max_ok:
                         cursor.execute(
                             "UPDATE exams SET last_notification_day = ? WHERE id = ?",
@@ -572,7 +572,7 @@ http://localhost:{CONFIG['server']['port']}
                     f"Необходимо срочно пересдать экзамен."
                 )
                 email_ok = send_email(row['email'], subject, body) if row['email'] else False
-                max_ok = send_max_message(row['max_chat_id'], max_text) if row['max_chat_id'] else False
+                max_ok = send_max_message(row['max_chat_id'], max_text, user_id=row['max_user_id']) if row['max_chat_id'] else False
                 if email_ok or max_ok:
                     cursor.execute(
                         "UPDATE exams SET last_notification_day = -1 WHERE id = ?",
@@ -694,14 +694,20 @@ async def save_fcm_token(request: Request, current_user=Depends(get_current_user
 async def test_push_notification(current_user=Depends(get_current_user)):
     uid = current_user["user_id"]
     conn = get_db()
-    row = conn.execute("SELECT full_name FROM users WHERE user_id = ?", (uid,)).fetchone()
+    row = conn.execute(
+        "SELECT full_name, max_chat_id, max_user_id FROM users WHERE user_id = ?", (uid,)
+    ).fetchone()
     conn.close()
     uname = row['full_name'] if row else ''
+    max_chat_id = row['max_chat_id'] if row else None
+    max_user_id = row['max_user_id'] if row else None
     def _delayed():
         time.sleep(30)
         title = "🔔 Тест UAISS"
         body  = "FCM работает! Уведомления приходят при закрытом приложении."
         send_push_to_user(uid, title, body, {"view": "exams"})
+        if max_chat_id:
+            send_max_message(max_chat_id, f"{title}\n\n{body}", user_id=max_user_id)
         log_notification('test', title, body, user_id=uid, user_name=uname)
     thread = Thread(target=_delayed)
     thread.daemon = True
@@ -750,12 +756,16 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
     try:
         _ensure_fcm_table(conn)
         rows = conn.execute("SELECT DISTINCT token FROM fcm_tokens").fetchall()
+        max_rows = conn.execute(
+            "SELECT max_chat_id, max_user_id FROM users WHERE max_chat_id IS NOT NULL AND max_chat_id != ''"
+        ).fetchall()
     finally:
         conn.close()
 
     tokens = [row[0] for row in rows]
-    if not tokens:
-        raise HTTPException(status_code=404, detail="Нет зарегистрированных устройств")
+    max_targets = [(r['max_chat_id'], r['max_user_id']) for r in max_rows]
+    if not tokens and not max_targets:
+        raise HTTPException(status_code=404, detail="Нет зарегистрированных устройств и привязанных MAX-аккаунтов")
 
     admin_name = current_user.get("name", current_user.get("user_id", "Админ"))
 
@@ -764,7 +774,11 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
         for token in tokens:
             if send_fcm_push(token, body.title, body.message, {"view": "home"}):
                 sent += 1
-        print(f"✅ Broadcast: {sent}/{len(tokens)} устройств")
+        max_sent = 0
+        for chat_id, user_id in max_targets:
+            if send_max_message(chat_id, f"{body.title}\n\n{body.message}", user_id=user_id):
+                max_sent += 1
+        print(f"✅ Broadcast: {sent}/{len(tokens)} устройств (push), {max_sent}/{len(max_targets)} MAX")
 
     thread = Thread(target=_send_all)
     thread.daemon = True
@@ -774,7 +788,11 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
                      user_id=None, user_name=None,
                      sent_by=current_user["user_id"], sent_by_name=admin_name)
 
-    return {"sent": len(tokens), "message": f"Рассылка запущена для {len(tokens)} устройств"}
+    return {
+        "sent": len(tokens),
+        "max_sent": len(max_targets),
+        "message": f"Рассылка запущена: {len(tokens)} устройств (push) + {len(max_targets)} MAX-аккаунтов",
+    }
 
 @app.get("/api/v1/notifications/log")
 async def get_notification_log(current_user=Depends(get_current_user)):
@@ -1690,23 +1708,27 @@ async def admin_delete_status(status_id: int, current_user=Depends(require_admin
 
 # ── MAX: уведомления через мессенджер MAX (botapi.max.ru) ────────────────────
 
-def send_max_message(chat_id: str, text: str) -> bool:
-    """Отправка сообщения пользователю через MAX Bot API (botapi.max.ru)."""
-    if not MAX_ENABLED or not MAX_TOKEN or not chat_id:
+def send_max_message(chat_id, text: str, user_id=None) -> bool:
+    """Отправка сообщения пользователю через MAX Bot API.
+    Предпочитаем user_id — это прямой и документированный способ адресовать личный
+    диалог (POST /messages?user_id=...); chat_id — запасной вариант, если user_id
+    не сохранён (например, привязка произошла до этого поля)."""
+    if not MAX_ENABLED or not MAX_TOKEN or not (chat_id or user_id):
         return False
+    params = {"user_id": user_id} if user_id else {"chat_id": chat_id}
     try:
         r = requests.post(
             f"{MAX_API_URL}/messages",
-            params={"chat_id": chat_id},
+            params=params,
             headers={"Authorization": MAX_TOKEN},
             json={"text": text},
             timeout=10,
         )
         r.raise_for_status()
-        print(f"✅ MAX-уведомление отправлено на chat_id={chat_id}")
+        print(f"✅ MAX-уведомление отправлено ({params})")
         return True
     except Exception as e:
-        print(f"❌ Ошибка отправки MAX-сообщения на chat_id={chat_id}: {e}")
+        print(f"❌ Ошибка отправки MAX-сообщения ({params}): {e}")
         return False
 
 def generate_max_link_code(user_id: int) -> str:
