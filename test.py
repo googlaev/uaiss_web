@@ -310,6 +310,16 @@ def parse_date(date_str: str) -> datetime:
 def format_date(date: datetime) -> str:
     return date.strftime('%d.%m.%Y')
 
+def calc_exam_end_date(exam_date, duration_months: int):
+    """Дата истечения = exam_date + duration_months календарных месяцев (не 30*N дней!).
+    30-дневная аппроксимация накапливает ошибку: для 12 месяцев — уже 5-6 дней,
+    для 36 — 15-16. Если в целевом месяце меньше дней, чем день сдачи (например,
+    31.01 + 1 месяц), берём последний день целевого месяца."""
+    year = exam_date.year + (exam_date.month + duration_months - 1) // 12
+    month = (exam_date.month + duration_months - 1) % 12 + 1
+    day = min(exam_date.day, monthrange(year, month)[1])
+    return date(year, month, day)
+
 def is_status_active(start_date_str: str, end_date_str: Optional[str]) -> bool:
     try:
         today = datetime.now()
@@ -493,14 +503,8 @@ def check_and_send_notifications_sync():
         try:
             exam_date = datetime.strptime(row['exam_date'], '%d.%m.%Y').date()
             duration_months = int(row['duration'])
-            
-            year = exam_date.year + (exam_date.month + duration_months - 1) // 12
-            month = (exam_date.month + duration_months - 1) % 12 + 1
-            day = exam_date.day
-            last_day = monthrange(year, month)[1]
-            end_day = min(day, last_day)
-            end_date = date(year, month, end_day)
-            
+            end_date = calc_exam_end_date(exam_date, duration_months)
+
             days_left = (end_date - today).days
             exam_id = row['exam_id']
             last_sent = row['last_notification_day'] or 0
@@ -843,8 +847,8 @@ async def export_exams_report(current_user=Depends(get_current_user)):
             try:
                 exam_date = datetime.strptime(row['exam_date'], '%d.%m.%Y')
                 duration_months = int(row['duration_months']) if row['duration_months'] else int(row['duration']) if row['duration'] else 0
-                end_date = exam_date + timedelta(days=duration_months * 30)
-                
+                end_date = calc_exam_end_date(exam_date, duration_months)
+
                 writer.writerow([
                     row['full_name'],
                     row['exam_name'],
@@ -887,7 +891,7 @@ async def get_expiring_exams(current_user=Depends(get_current_user)):
             try:
                 exam_date = datetime.strptime(row['exam_date'], '%d.%m.%Y').date()
                 months = int(row['duration_months']) if row['duration_months'] else 12
-                expires = exam_date + timedelta(days=months * 30)
+                expires = calc_exam_end_date(exam_date, months)
                 days_left = (expires - today).days
                 if expires <= cutoff:
                     result.append({
@@ -914,12 +918,12 @@ async def get_my_exams(current_user=Depends(get_current_user)):
         FROM exams e LEFT JOIN exam_types et ON e.name = et.name
         WHERE e.user_id = ? ORDER BY e.date DESC
     """, (current_user["user_id"],))
-    exams, today = [], datetime.now()
+    exams, today = [], datetime.now().date()
     for row in cursor:
         try:
-            exam_date = datetime.strptime(row['date'], '%d.%m.%Y')
+            exam_date = datetime.strptime(row['date'], '%d.%m.%Y').date()
             duration_months = int(row['duration_months']) if row['duration_months'] else int(row['duration'])
-            end_date = exam_date + timedelta(days=duration_months * 30)
+            end_date = calc_exam_end_date(exam_date, duration_months)
             days_left = (end_date - today).days
             status = "Просрочен" if days_left < 0 else ("Истекает" if days_left <= 30 else "Действующий")
             exams.append({
@@ -1493,12 +1497,12 @@ async def admin_get_exams(current_user=Depends(require_admin)):
             ORDER BY u.full_name, e.date DESC
         """)
         result = []
-        today = datetime.now()
+        today = datetime.now().date()
         for row in cursor.fetchall():
             try:
-                exam_date = datetime.strptime(row['date'], '%d.%m.%Y')
+                exam_date = datetime.strptime(row['date'], '%d.%m.%Y').date()
                 duration_months = int(row['duration'])
-                end_date = exam_date + timedelta(days=duration_months * 30)
+                end_date = calc_exam_end_date(exam_date, duration_months)
                 days_left = (end_date - today).days
                 status = "Просрочен" if days_left < 0 else ("Истекает" if days_left <= 30 else "Действующий")
                 expires = end_date.strftime('%d.%m.%Y')

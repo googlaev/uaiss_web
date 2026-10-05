@@ -269,6 +269,7 @@ verify_token(token)        # Декодирование JWT, raises 401 при �
 get_current_user(...)      # FastAPI Dependency: декодирует Bearer-токен из заголовка
 parse_date(s)              # str "ДД.ММ.ГГГГ" → datetime
 format_date(d)             # datetime → str "ДД.ММ.ГГГГ"
+calc_exam_end_date(exam_date, duration_months) # Дата истечения по точным календарным месяцам (единая для всех эндпоинтов)
 is_status_active(start, end) # Проверка: статус активен сейчас?
 check_status_overlap(...)  # Поиск пересечений дат статусов
 send_email(to, subj, body) # Синхронная отправка через Gmail SMTP
@@ -323,7 +324,7 @@ start_max_bot()            # Запуск фонового потока приё
 3. Если `days_left ∈ NOTIFY_DAYS` и `last_notification_day != days_left` → отправляет письмо и обновляет `last_notification_day`
 4. Если `days_left < 0` и `last_notification_day != -1` → письмо о просрочке, ставит `-1`
 
-> **Особенность:** Расчёт дат в уведомлениях использует `calendar.monthrange` (точный), а в `/exams/my` — умножение на 30 дней (приближённый). Это может давать расхождение ±1-2 дня.
+Расчёт даты истечения везде идёт через общую функцию `calc_exam_end_date(exam_date, duration_months)` (точные календарные месяцы, через `calendar.monthrange`, с клампом на последний день месяца, если день сдачи больше) — используется и в уведомлениях, и в `/exams/my`, `/exams/expiring`, `/admin/exams`, CSV-экспорте. Раньше эндпоинты дублировали расчёт по-разному (где-то `duration_months * 30 дней`, что давало расхождение до 15-16 дней на длинных сроках) — унифицировано.
 
 ---
 
