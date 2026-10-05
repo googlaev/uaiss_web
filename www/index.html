@@ -235,7 +235,7 @@
         // в отличие от new_uaiss.html (который FastAPI отдаёт с того же домена, что и API —
         // там относительный путь работает), здесь нужен АБСОЛЮТНЫЙ адрес бэкенда.
         // Перед сборкой APK замените на реальный домен/IP сервера.
-        const API_BASE = 'https://ВАШ-ДОМЕН/api/v1';
+        const API_BASE = 'https://bot.codle.ru/api/v1';
         let isAuthenticated = false;
         let currentUser = null;
         let authToken = localStorage.getItem('authToken');
@@ -328,6 +328,7 @@
                     await loadAllData();
                     showToast(`👋 Добро пожаловать, ${currentUser.name}!`);
                     render();
+                    initPushNotifications();
                     return true;
                 } else {
                     loginError = data.detail || "Неверный логин или пароль";
@@ -2013,6 +2014,7 @@
                 localStorage.setItem('cachedUser', JSON.stringify(currentUser));
                 isAuthenticated = true;
                 await loadAllData();
+                initPushNotifications();
             } catch (e) {
                 if (isAuthenticated) {
                     showToast('⚠️ Сервер недоступен. Показаны сохранённые данные.', 5000);
@@ -2021,6 +2023,52 @@
                 }
             }
         }
+        // Push-уведомления (FCM через @capacitor/push-notifications) — работает только
+        // внутри Android-приложения (Capacitor); в браузере/мини-аппе MAX — no-op.
+        async function initPushNotifications() {
+            if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+            const { PushNotifications } = window.Capacitor.Plugins || {};
+            if (!PushNotifications) return;
+
+            try {
+                let perm = await PushNotifications.checkPermissions();
+                if (perm.receive !== 'granted') perm = await PushNotifications.requestPermissions();
+                if (perm.receive !== 'granted') return;
+                await PushNotifications.register();
+            } catch (e) {
+                console.error('Push permission/register error:', e);
+                return;
+            }
+
+            PushNotifications.addListener('registration', async (token) => {
+                try {
+                    await apiRequest('/fcm-token', { method: 'POST', body: JSON.stringify({ token: token.value }) });
+                } catch (e) {
+                    console.error('Failed to save FCM token:', e);
+                }
+            });
+
+            PushNotifications.addListener('registrationError', (err) => {
+                console.error('Push registration error:', err);
+            });
+
+            // Уведомление пришло, пока приложение открыто — показать toast
+            PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                const title = notification.title || 'UAISS';
+                const body = notification.body || '';
+                showToast(`🔔 ${title}: ${body}`, 5000);
+            });
+
+            // Пользователь нажал на уведомление — открыть нужный экран
+            PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+                const data = action.notification.data || {};
+                if (data.view && isAuthenticated) {
+                    currentView = data.view;
+                    render();
+                }
+            });
+        }
+
         window.addEventListener('online',  () => { isOnline = true;  render(); });
         window.addEventListener('offline', () => { isOnline = false; render(); });
         initApp();
