@@ -321,17 +321,19 @@ def calc_exam_end_date(exam_date, duration_months: int):
     return date(year, month, day)
 
 def is_status_active(start_date_str: str, end_date_str: Optional[str]) -> bool:
+    """Первый и последний день статуса включительны: сравниваем календарные даты,
+    а не точное время (иначе последний день считался активным только до 00:00:00)."""
     try:
-        today = datetime.now()
-        start_date = datetime.strptime(start_date_str, '%d.%m.%Y')
-        
+        today = datetime.now().date()
+        start_date = datetime.strptime(start_date_str, '%d.%m.%Y').date()
+
         if start_date > today:
             return False
-        
+
         if end_date_str is None or end_date_str == '':
             return True
-        
-        end_date = datetime.strptime(end_date_str, '%d.%m.%Y')
+
+        end_date = datetime.strptime(end_date_str, '%d.%m.%Y').date()
         return end_date >= today
     except:
         return False
