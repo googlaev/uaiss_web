@@ -2055,23 +2055,23 @@ def _max_bot_handle_link_by_name(chat_id, max_user_id, query):
     ok, reply = max_link_account_by_name(result_id, chat_id, max_user_id)
     send_max_message(chat_id, reply)
 
+_MAX_KNOWN_GROUP_CHATS = {MAX_GROUP_CHAT_ID} if MAX_GROUP_CHAT_ID else set()
+
 def _max_bot_handle_message(update: dict):
+    """Обрабатывает входящие сообщения — ТОЛЬКО в личных диалогах (/start, /link,
+    /фио). В группах/каналах (куда бот добавлен ради вещания уведомлений) бот
+    должен молчать и никак не реагировать — проверяем это первым делом."""
     msg = update.get("message") or {}
     body = (msg.get("body") or {}).get("text") or ""
     chat_id = msg.get("recipient", {}).get("chat_id")
     max_user_id = msg.get("sender", {}).get("user_id")
     if not chat_id or not body:
         return
+    if str(chat_id) in _MAX_KNOWN_GROUP_CHATS:
+        return
     body = body.strip()
     if body.startswith("/start"):
         send_max_message(chat_id, _max_welcome_text())
-    elif body.startswith("/id"):
-        send_max_message(
-            chat_id,
-            f"ID этого чата: {chat_id}\n\n"
-            f"Чтобы уведомления об экзаменах дублировались сюда, впишите это значение "
-            f"в config.json → max.group_chat_id и перезапустите бэкенд."
-        )
     elif body.startswith("/link"):
         _max_bot_handle_link_by_code(chat_id, max_user_id, body.split())
     elif body.startswith("/фио") or body.startswith("/иниц"):
@@ -2079,6 +2079,18 @@ def _max_bot_handle_message(update: dict):
         _max_bot_handle_link_by_name(chat_id, max_user_id, parts[1] if len(parts) > 1 else "")
     else:
         send_max_message(chat_id, _max_welcome_text())
+
+def _max_bot_handle_bot_added(update: dict):
+    """Бот добавлен в групповой чат/канал. НЕ пишет туда ничего (бот должен
+    молчать в группах) — только запоминает chat_id в памяти на время работы
+    процесса (чтобы не отвечать на сообщения оттуда) и печатает его в лог
+    сервера, чтобы админ мог вписать значение в config.json → max.group_chat_id."""
+    chat_id = update.get("chat_id")
+    if not chat_id:
+        return
+    _MAX_KNOWN_GROUP_CHATS.add(str(chat_id))
+    print(f"🔔 MAX: бот добавлен в групповой чат/канал, chat_id={chat_id} "
+          f"— впишите в config.json → max.group_chat_id, если нужно слать туда уведомления")
 
 def _max_bot_get_updates(marker=None):
     try:
@@ -2110,8 +2122,11 @@ def _max_bot_loop():
         if data:
             for upd in data.get("updates", []):
                 try:
-                    if upd.get("update_type") == "message_created":
+                    update_type = upd.get("update_type")
+                    if update_type == "message_created":
                         _max_bot_handle_message(upd)
+                    elif update_type == "bot_added":
+                        _max_bot_handle_bot_added(upd)
                 except Exception as e:
                     print(f"[max_bot handler error] {e}")
             marker = data.get("marker") or marker
