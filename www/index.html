@@ -253,6 +253,8 @@
         let myStatuses = [];
         let examTypes = [];
         let statusStats = null;
+        let managementTab = 'statuses';
+        let expiringExams = [];
         let isLoading = false;
         let examSortType = 'date_asc';
         let notifLogs = [];
@@ -354,6 +356,8 @@
                 if (statusRes.ok) { myStatuses = await statusRes.json(); localStorage.setItem('cachedStatuses', JSON.stringify(myStatuses)); }
                 const statsRes = await apiRequest('/status/current');
                 if (statsRes.ok) { statusStats = await statsRes.json(); localStorage.setItem('cachedStats', JSON.stringify(statusStats)); }
+                const expiringRes = await apiRequest('/exams/expiring');
+                if (expiringRes.ok) { expiringExams = await expiringRes.json(); localStorage.setItem('cachedExpiringExams', JSON.stringify(expiringExams)); }
                 const meRes = await apiRequest('/auth/me');
                 if (meRes.ok) {
                     const meData = await meRes.json();
@@ -624,6 +628,7 @@
             localStorage.removeItem('cachedStatuses');
             localStorage.removeItem('cachedStats');
             localStorage.removeItem('cachedExamTypes');
+            localStorage.removeItem('cachedExpiringExams');
             isAuthenticated = false;
             currentUser = null;
             currentView = 'home';
@@ -632,6 +637,8 @@
             myStatuses = [];
             examTypes = [];
             statusStats = null;
+            expiringExams = [];
+            managementTab = 'statuses';
             showToast('👋 Вы вышли из системы');
             render();
         }
@@ -1380,6 +1387,52 @@
 
         function ManagementView() {
             if (isLoading) return `<div class="loading">⏳ Загрузка данных...</div>`;
+
+            const tabs = [
+                { id: 'statuses', icon: '👥', label: 'Статусы' },
+                { id: 'exams',    icon: '📚', label: 'Экзамены' }
+            ];
+            const tabsHtml = `<div class="admin-tabs">${tabs.map(t =>
+                `<button class="admin-tab${managementTab===t.id?' active':''}" onclick="window.setManagementTab('${t.id}')">${t.icon} ${t.label}</button>`
+            ).join('')}</div>`;
+
+            const header = `
+                <div class="card-header" style="margin-bottom:12px;">
+                    <div class="card-title">📊 Управление персоналом</div>
+                    ${currentUser.role === 'admin' ? '<span style="background:linear-gradient(135deg,var(--accent),#818CF8);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;color:white;">👑 Администратор</span>' : ''}
+                </div>
+                ${tabsHtml}
+            `;
+
+            if (managementTab === 'exams') {
+                const exams = expiringExams || [];
+                return `
+                    <div class="content">
+                        ${header}
+                        ${exams.length === 0 ? `<div class="card" style="text-align:center;color:var(--text-secondary);padding:24px;">За ближайший месяц ни у кого экзамены не истекают 🎉</div>` : `
+                            <div class="card" style="padding:0;overflow:hidden;">
+                                ${exams.map((e, idx) => {
+                                    const critical = e.days_left <= 7;
+                                    const expired = e.days_left < 0;
+                                    const color = expired || critical ? 'var(--danger)' : 'var(--warning)';
+                                    const daysLabel = expired ? `просрочен на ${Math.abs(e.days_left)} дн.` : `${e.days_left} дн.`;
+                                    return `<div style="padding:10px 14px;${idx < exams.length-1 ? 'border-bottom:1px solid var(--border);' : ''}display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                                        <div style="min-width:0;">
+                                            <div style="font-weight:500;font-size:13px;">${e.emoji || '📚'} ${e.exam_name}</div>
+                                            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${e.user_name}</div>
+                                        </div>
+                                        <div style="text-align:right;flex-shrink:0;">
+                                            <div style="font-size:12px;color:var(--text-secondary);">до ${e.expires_at}</div>
+                                            <div style="font-size:12px;font-weight:600;color:${color};margin-top:2px;">${daysLabel}</div>
+                                        </div>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        `}
+                    </div>
+                `;
+            }
+
             const stats = statusStats || { total: 0, working: 0, sick: 0, trip: 0, vacation: 0, employees: [] };
             const allEmployees = stats.employees || [];
 
@@ -1392,10 +1445,7 @@
 
             return `
                 <div class="content">
-                    <div class="card-header" style="margin-bottom:12px;">
-                        <div class="card-title">📊 Управление персоналом</div>
-                        ${currentUser.role === 'admin' ? '<span style="background:linear-gradient(135deg,var(--accent),#818CF8);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;color:white;">👑 Администратор</span>' : ''}
-                    </div>
+                    ${header}
 
                     ${groups.map(g => {
                         const emps = allEmployees.filter(e => e.status_type === g.id);
@@ -1709,6 +1759,7 @@
 
         window.setStatusFilter = (filter) => { statusFilter = filter; if (currentView !== 'management') currentView = 'management'; render(); };
         window.setStatusFilterAndGo = (filter) => { statusFilter = filter; currentView = 'management'; render(); };
+        window.setManagementTab = (tab) => { managementTab = tab; render(); };
         window.selectExamType = (id) => {
             selectedExamType = id;
             const type = examTypes.find(t => t.id === id);
@@ -1991,6 +2042,7 @@
                 const cs = localStorage.getItem('cachedStatuses');  if (cs) myStatuses = JSON.parse(cs);
                 const cst = localStorage.getItem('cachedStats');    if (cst) statusStats = JSON.parse(cst);
                 const ct = localStorage.getItem('cachedExamTypes'); if (ct) examTypes = JSON.parse(ct);
+                const cee = localStorage.getItem('cachedExpiringExams'); if (cee) expiringExams = JSON.parse(cee);
                 isAuthenticated = true;
                 render();
             }
