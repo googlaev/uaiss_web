@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import sqlite3
 from datetime import datetime, timedelta, date, timezone
 from calendar import monthrange
@@ -825,6 +825,8 @@ async def send_notifications_manual(current_user=Depends(get_current_user)):
 class BroadcastRequest(BaseModel):
     title: str = "UAISS"
     message: str
+    user_ids: Optional[List[int]] = None  # None/[] = всем пользователям
+    notify_group: bool = True             # дублировать в групповой чат MAX (если он настроен)
 
 @app.post("/api/v1/notifications/broadcast")
 async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_current_user)):
@@ -833,20 +835,36 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
     if not body.message.strip():
         raise HTTPException(status_code=400, detail="Текст сообщения не может быть пустым")
 
+    target_ids = body.user_ids or None  # пусто/None → всем
+
     conn = get_db()
     try:
         _ensure_fcm_table(conn)
-        rows = conn.execute("SELECT DISTINCT token FROM fcm_tokens").fetchall()
-        max_rows = conn.execute(
-            "SELECT max_chat_id, max_user_id FROM users WHERE max_chat_id IS NOT NULL AND max_chat_id != ''"
-        ).fetchall()
+        if target_ids:
+            placeholders = ",".join("?" * len(target_ids))
+            rows = conn.execute(
+                f"SELECT DISTINCT token FROM fcm_tokens WHERE user_id IN ({placeholders})",
+                [str(uid) for uid in target_ids]
+            ).fetchall()
+            max_rows = conn.execute(
+                f"""SELECT max_chat_id, max_user_id FROM users
+                    WHERE max_chat_id IS NOT NULL AND max_chat_id != ''
+                    AND user_id IN ({placeholders})""",
+                target_ids
+            ).fetchall()
+        else:
+            rows = conn.execute("SELECT DISTINCT token FROM fcm_tokens").fetchall()
+            max_rows = conn.execute(
+                "SELECT max_chat_id, max_user_id FROM users WHERE max_chat_id IS NOT NULL AND max_chat_id != ''"
+            ).fetchall()
     finally:
         conn.close()
 
     tokens = [row[0] for row in rows]
     max_targets = [(r['max_chat_id'], r['max_user_id']) for r in max_rows]
-    if not tokens and not max_targets:
-        raise HTTPException(status_code=404, detail="Нет зарегистрированных устройств и привязанных MAX-аккаунтов")
+    notify_group = bool(body.notify_group and MAX_GROUP_CHAT_ID)
+    if not tokens and not max_targets and not notify_group:
+        raise HTTPException(status_code=404, detail="Нет получателей для рассылки")
 
     admin_name = current_user.get("name", current_user.get("user_id", "Админ"))
 
@@ -859,10 +877,7 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
         for chat_id, user_id in max_targets:
             if send_max_message(chat_id, f"{body.title}\n\n{body.message}", user_id=user_id):
                 max_sent += 1
-        group_sent = (
-            send_max_message(MAX_GROUP_CHAT_ID, f"{body.title}\n\n{body.message}")
-            if MAX_GROUP_CHAT_ID else False
-        )
+        group_sent = send_max_message(MAX_GROUP_CHAT_ID, f"{body.title}\n\n{body.message}") if notify_group else False
         print(f"✅ Broadcast: {sent}/{len(tokens)} устройств (push), {max_sent}/{len(max_targets)} MAX, "
               f"группа={'да' if group_sent else 'нет'}")
 
@@ -874,12 +889,13 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
                      user_id=None, user_name=None,
                      sent_by=current_user["user_id"], sent_by_name=admin_name)
 
-    group_part = " + группа MAX" if MAX_GROUP_CHAT_ID else ""
+    group_part = " + группа MAX" if notify_group else ""
+    target_part = f" ({len(target_ids)} выбранных)" if target_ids else " (всем)"
     return {
         "sent": len(tokens),
         "max_sent": len(max_targets),
-        "group_sent": bool(MAX_GROUP_CHAT_ID),
-        "message": f"Рассылка запущена: {len(tokens)} устройств (push) + {len(max_targets)} MAX-аккаунтов{group_part}",
+        "group_sent": notify_group,
+        "message": f"Рассылка запущена{target_part}: {len(tokens)} устройств (push) + {len(max_targets)} MAX-аккаунтов{group_part}",
     }
 
 @app.get("/api/v1/notifications/log")

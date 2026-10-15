@@ -221,7 +221,7 @@ CREATE TABLE notification_logs (
 |-------|------|----------|
 | POST | `/notifications/send` | Ручной запуск email-уведомлений (только admin) — `check_and_send_notifications_sync()`, включает и MAX, если привязан |
 | POST | `/notifications/test-push` | Тестовый FCM push текущему пользователю |
-| POST | `/notifications/broadcast` | Рассылка произвольного текста всем (admin): push на все устройства + личные MAX-сообщения привязанным аккаунтам + копия в групповой чат MAX (`max.group_chat_id`, если настроен); пишет запись в `notification_logs` |
+| POST | `/notifications/broadcast` | Рассылка произвольного текста (admin): `{title, message, user_ids?, notify_group?}` — push на устройства + личные MAX-сообщения + копия в групповой чат MAX. `user_ids` — список `user_id` получателей (`null`/не указан/`[]` — всем); `notify_group` (по умолчанию `true`) — слать ли копию в `max.group_chat_id` (игнорируется, если он не настроен); пишет запись в `notification_logs` |
 | GET | `/notifications/log` | Журнал уведомлений (для дравера-колокольчика в UI) |
 | DELETE | `/notifications/log/{notif_id}` | Удалить запись журнала |
 | POST | `/fcm-token` | Сохранить FCM-токен устройства текущего пользователя в `fcm_tokens` |
