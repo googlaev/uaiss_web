@@ -2055,7 +2055,41 @@ def _max_bot_handle_link_by_name(chat_id, max_user_id, query):
     ok, reply = max_link_account_by_name(result_id, chat_id, max_user_id)
     send_max_message(chat_id, reply)
 
-_MAX_KNOWN_GROUP_CHATS = {MAX_GROUP_CHAT_ID} if MAX_GROUP_CHAT_ID else set()
+#   chat_id(str) -> "dialog" | "chat" | "channel" — кэш типа чата на время жизни
+#   процесса, чтобы не дёргать GET /chats/{chatId} на каждое сообщение.
+_MAX_CHAT_TYPE_CACHE = {str(MAX_GROUP_CHAT_ID): "chat"} if MAX_GROUP_CHAT_ID else {}
+
+def _max_fetch_chat_type(chat_id):
+    """GET /chats/{chatId} — тип чата: 'dialog' (личный диалог) | 'chat' (группа) |
+    'channel'. Возвращает None при сетевой ошибке/невалидном ответе."""
+    try:
+        r = requests.get(
+            f"{MAX_API_URL}/chats/{chat_id}",
+            headers={"Authorization": MAX_TOKEN},
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json().get("type")
+    except Exception as e:
+        print(f"[max_bot chat_type] {e}")
+        return None
+
+def _max_is_group_or_channel(chat_id) -> bool:
+    """True, если это группа/канал (а не личный диалог) — туда бот не должен
+    отвечать ни на что. Классификация кэшируется; если тип не удалось
+    определить (сбой сети) — по умолчанию считаем группой/каналом: лучше
+    один раз не ответить в личке, чем случайно написать в общий чат.
+    Покрывает и случай, когда бот был добавлен в группу ДО появления этой
+    защиты — bot_added для старого участия не повторится, но первое же
+    сообщение в такой группе попадёт сюда и чат будет распознан."""
+    key = str(chat_id)
+    if key not in _MAX_CHAT_TYPE_CACHE:
+        chat_type = _max_fetch_chat_type(chat_id) or "chat"
+        _MAX_CHAT_TYPE_CACHE[key] = chat_type
+        if chat_type != "dialog":
+            print(f"🔔 MAX: обнаружен групповой чат/канал, chat_id={chat_id} "
+                  f"— впишите в config.json → max.group_chat_id, если нужно слать туда уведомления")
+    return _MAX_CHAT_TYPE_CACHE[key] != "dialog"
 
 def _max_bot_handle_message(update: dict):
     """Обрабатывает входящие сообщения — ТОЛЬКО в личных диалогах (/start, /link,
@@ -2067,7 +2101,7 @@ def _max_bot_handle_message(update: dict):
     max_user_id = msg.get("sender", {}).get("user_id")
     if not chat_id or not body:
         return
-    if str(chat_id) in _MAX_KNOWN_GROUP_CHATS:
+    if _max_is_group_or_channel(chat_id):
         return
     body = body.strip()
     if body.startswith("/start"):
@@ -2082,13 +2116,13 @@ def _max_bot_handle_message(update: dict):
 
 def _max_bot_handle_bot_added(update: dict):
     """Бот добавлен в групповой чат/канал. НЕ пишет туда ничего (бот должен
-    молчать в группах) — только запоминает chat_id в памяти на время работы
-    процесса (чтобы не отвечать на сообщения оттуда) и печатает его в лог
-    сервера, чтобы админ мог вписать значение в config.json → max.group_chat_id."""
+    молчать в группах) — только кэширует тип чата (чтобы не ходить лишний раз
+    в API) и печатает chat_id в лог сервера, чтобы админ мог вписать значение
+    в config.json → max.group_chat_id."""
     chat_id = update.get("chat_id")
     if not chat_id:
         return
-    _MAX_KNOWN_GROUP_CHATS.add(str(chat_id))
+    _MAX_CHAT_TYPE_CACHE[str(chat_id)] = "chat"
     print(f"🔔 MAX: бот добавлен в групповой чат/канал, chat_id={chat_id} "
           f"— впишите в config.json → max.group_chat_id, если нужно слать туда уведомления")
 
