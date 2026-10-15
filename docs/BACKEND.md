@@ -33,7 +33,13 @@
     "api_url": "https://botapi.max.ru",
     "bot_username": "@uaiss_bot",
     "link_code_ttl_minutes": 15,
-    "allow_name_link": true
+    "allow_name_link": true,
+    "group_chat_id": "",
+    "group_notify_days": [30, 3, 1],
+    "weekly_report_enabled": true,
+    "weekly_report_day_of_week": "mon",
+    "weekly_report_hour": 10,
+    "weekly_report_minute": 0
   },
   "server": {
     "host": "0.0.0.0",
@@ -235,10 +241,11 @@ CREATE TABLE notification_logs (
 
 | Метод | Путь | Тело | Описание |
 |-------|------|------|----------|
-| GET | `/max/status` | — | `{enabled, linked, bot_username}` — включён ли канал и привязан ли аккаунт |
+| GET | `/max/status` | — | `{enabled, linked, bot_username, allow_name_link, group_chat_configured}` — включён ли канал, привязан ли личный аккаунт, настроен ли групповой чат |
 | POST | `/max/link-code` | — | Генерирует одноразовый код привязки (TTL `max.link_code_ttl_minutes`) |
 | DELETE | `/max/link` | — | Отвязывает MAX-чат от аккаунта |
 | POST | `/max/webapp-auth` | `{init_data}` | Автовход для мини-приложения MAX: проверяет подпись `initData` (MAX Bridge) и, если этот MAX-аккаунт уже привязан, выдаёт JWT без логина/пароля. Если ещё не привязан — `{"linked": false}`, фронтенд показывает обычную форму входа |
+| POST | `/max/weekly-report/send` | — | Ручной запуск еженедельного отчёта статусов в групповой чат (только admin), не дожидаясь понедельника 10:00 |
 
 Привязку можно завершить двумя способами:
 1. Фоновый поток внутри самого бэкенда (`start_max_bot()` / `_max_bot_loop()`): пользователь отправляет боту `/link КОД`, поток находит код в `max_link_codes`, записывает `chat_id` в `users.max_chat_id`. Отдельного процесса запускать не нужно.
@@ -283,8 +290,10 @@ generate_max_link_code(user_id)   # Генерирует одноразовый 
 find_max_user_by_name(query)      # Поиск пользователя по ФИО/инициалам для /фио
 verify_max_init_data(init_data)   # Проверка подписи initData мини-приложения MAX (HMAC-SHA256)
 link_max_account_from_webapp(...) # Привязка MAX-чата к аккаунту после входа внутри мини-аппа
-check_and_send_notifications_sync() # Основная логика ежедневного обхода экзаменов (email + MAX)
-start_scheduler()          # Запуск APScheduler с CronTrigger
+check_and_send_notifications_sync() # Основная логика ежедневного обхода экзаменов (email + MAX, личные + групповой чат)
+build_status_report_text() # Текст сводки статусов сотрудников (аналог вкладки «Управление»)
+send_weekly_status_report() # Отправляет build_status_report_text() в MAX-группу
+start_scheduler()          # Запуск APScheduler с CronTrigger (ежедневные уведомления + еженедельный отчёт статусов)
 start_max_bot()            # Запуск фонового потока приёма сообщений MAX-бота (/link, /фио)
 ```
 
@@ -313,13 +322,25 @@ start_max_bot()            # Запуск фонового потока приё
 
 **Включение канала:** в `config.json` секция `max.enabled: true` и `max.token: "<токен бота>"`. Без токена канал молча выключен (`send_max_message` возвращает `False`, эндпоинт `/max/link-code` отвечает 400).
 
+**Дублирование в групповой чат (`max.group_chat_id`):** помимо личных уведомлений, можно настроить отправку копии каждого уведомления об экзамене (напоминание + просрочка) в общий групповой чат/канал MAX, куда добавлен бот:
+
+1. Добавить бота в нужную группу в MAX.
+2. Написать туда `/id` — бот отвечает ID этого чата (обрабатывается в `_max_bot_handle_message()`, тем же фоновым потоком, что `/link`/`/фио`).
+3. Вписать этот ID в `config.json` → `max.group_chat_id` и перезапустить бэкенд.
+
+После этого `check_and_send_notifications_sync()` в блоке напоминаний по порогам дней дополнительно вызывает `send_max_message(MAX_GROUP_CHAT_ID, max_text)` — независимо от того, привязан ли у конкретного сотрудника личный MAX/email. Именно поэтому основной SQL-запрос в `check_and_send_notifications_sync()` больше не фильтрует сотрудников по наличию email/`max_chat_id` — иначе сотрудники без личного канала не попадали бы в выборку вообще, и групповой чат не узнавал бы об их экзаменах. Успешная отправка в группу (`group_ok`) также учитывается в условии `email_ok or max_ok or group_ok` при обновлении `last_notification_day`, чтобы не дублировать одно и то же уведомление в группу каждый день. `/max/status` возвращает `group_chat_configured: true/false` — удобно для UI, настроен ли канал.
+
+**Пороги для группы отдельные от личных** — `max.group_notify_days` (по умолчанию `[30, 3, 1]`): в группу уходят напоминания только за эти N дней до истечения экзамена, тогда как личные уведомления (email/привязанный личный MAX) продолжают идти по всем порогам `notifications.notify_days` (`[30, 7, 3, 2, 1]`). Просрочка (`notify_expired`) в группу **не дублируется** — уходит только в личные каналы (email + личный MAX), как и раньше.
+
+**Еженедельный отчёт статусов в группу** (`send_weekly_status_report()`, задача APScheduler `weekly_status_report`): по умолчанию каждый понедельник в 10:00 (`max.weekly_report_day_of_week`/`weekly_report_hour`/`weekly_report_minute`, можно отключить `weekly_report_enabled: false`) бот присылает в `group_chat_id` текстовую сводку — аналог вкладки «Управление»: кто сейчас в командировке/на больничном/в отпуске (с датой «до») и кто на рабочем месте, плюс итоговое число сотрудников. Формирует текст `build_status_report_text()` (переиспользует ту же логику активного статуса, что и `/status/current` — `is_status_active()`), отправляет `send_weekly_status_report()`. Проверить вручную, не дожидаясь понедельника: `POST /api/v1/max/weekly-report/send` (admin).
+
 ---
 
 ## Email-уведомления
 
 Алгоритм `check_and_send_notifications_sync()`:
 
-1. Выбирает все экзамены пользователей с непустым email
+1. Выбирает все экзамены всех пользователей (без фильтра по email/MAX — иначе сотрудники без личного канала не попали бы и в групповой MAX-чат, см. ниже «Дублирование в групповой чат»)
 2. Для каждого вычисляет `end_date = exam_date + duration_months` (через calendar.monthrange)
 3. Если `days_left ∈ NOTIFY_DAYS` и `last_notification_day != days_left` → отправляет письмо и обновляет `last_notification_day`
 4. Если `days_left < 0` и `last_notification_day != -1` → письмо о просрочке, ставит `-1`

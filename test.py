@@ -52,7 +52,13 @@ def load_config():
             "api_url": "https://botapi.max.ru",
             "bot_username": "",
             "link_code_ttl_minutes": 15,
-            "allow_name_link": True
+            "allow_name_link": True,
+            "group_chat_id": "",
+            "group_notify_days": [30, 3, 1],
+            "weekly_report_enabled": True,
+            "weekly_report_day_of_week": "mon",
+            "weekly_report_hour": 10,
+            "weekly_report_minute": 0
         },
         "server": {
             "host": "0.0.0.0",
@@ -179,6 +185,12 @@ MAX_API_URL = MAX_CONFIG.get('api_url', 'https://botapi.max.ru')
 MAX_BOT_USERNAME = MAX_CONFIG.get('bot_username', '')
 MAX_LINK_CODE_TTL_MINUTES = MAX_CONFIG.get('link_code_ttl_minutes', 15)
 MAX_ALLOW_NAME_LINK = MAX_CONFIG.get('allow_name_link', True)
+MAX_GROUP_CHAT_ID = MAX_CONFIG.get('group_chat_id') or None
+MAX_GROUP_NOTIFY_DAYS = set(MAX_CONFIG.get('group_notify_days', [30, 3, 1]))
+MAX_WEEKLY_REPORT_ENABLED = MAX_CONFIG.get('weekly_report_enabled', True)
+MAX_WEEKLY_REPORT_DAY = MAX_CONFIG.get('weekly_report_day_of_week', 'mon')
+MAX_WEEKLY_REPORT_HOUR = MAX_CONFIG.get('weekly_report_hour', 10)
+MAX_WEEKLY_REPORT_MINUTE = MAX_CONFIG.get('weekly_report_minute', 0)
 
 class LoginRequest(BaseModel):
     login: str
@@ -490,6 +502,10 @@ def check_and_send_notifications_sync():
     today = datetime.now().date()
     notifications_sent = 0
     
+    # Без фильтра по email/max_chat_id: экзамены сотрудников без личного канала
+    # всё равно должны попасть в групповой MAX-чат (если он настроен), поэтому
+    # перебираем всех сотрудников с экзаменами, а не только тех, у кого уже
+    # есть личный канал.
     cursor.execute("""
         SELECT u.user_id, u.full_name, u.email, u.max_chat_id, u.max_user_id,
                e.id as exam_id, e.name as exam_name,
@@ -497,8 +513,6 @@ def check_and_send_notifications_sync():
                e.last_notification_day
         FROM users u
         JOIN exams e ON u.user_id = e.user_id
-        WHERE (u.email IS NOT NULL AND u.email != '')
-           OR (u.max_chat_id IS NOT NULL AND u.max_chat_id != '')
     """)
     
     for row in cursor.fetchall():
@@ -537,7 +551,11 @@ http://localhost:{CONFIG['server']['port']}
                     )
                     email_ok = send_email(row['email'], subject, body) if row['email'] else False
                     max_ok = send_max_message(row['max_chat_id'], max_text, user_id=row['max_user_id']) if row['max_chat_id'] else False
-                    if email_ok or max_ok:
+                    group_ok = (
+                        send_max_message(MAX_GROUP_CHAT_ID, max_text)
+                        if MAX_GROUP_CHAT_ID and nd in MAX_GROUP_NOTIFY_DAYS else False
+                    )
+                    if email_ok or max_ok or group_ok:
                         cursor.execute(
                             "UPDATE exams SET last_notification_day = ? WHERE id = ?",
                             (nd, exam_id)
@@ -545,7 +563,7 @@ http://localhost:{CONFIG['server']['port']}
                         conn.commit()
                         notifications_sent += 1
                         print(f"✅ Уведомление за {nd} дней отправлено для {row['exam_name']} "
-                              f"(email={email_ok}, max={max_ok})")
+                              f"(email={email_ok}, max={max_ok}, max_group={group_ok})")
                     push_title = f"⚠️ Экзамен истекает через {nd} дней"
                     push_body = f"{row['exam_name']} — до {end_date.strftime('%d.%m.%Y')}"
                     send_push_to_user(row['user_id'], push_title, push_body, {"view": "exams"})
@@ -579,6 +597,7 @@ http://localhost:{CONFIG['server']['port']}
                 )
                 email_ok = send_email(row['email'], subject, body) if row['email'] else False
                 max_ok = send_max_message(row['max_chat_id'], max_text, user_id=row['max_user_id']) if row['max_chat_id'] else False
+                # Просрочка — только в личные каналы, в групповой чат не дублируется.
                 if email_ok or max_ok:
                     cursor.execute(
                         "UPDATE exams SET last_notification_day = -1 WHERE id = ?",
@@ -599,6 +618,62 @@ http://localhost:{CONFIG['server']['port']}
     conn.close()
     print(f"📊 Отправлено уведомлений: {notifications_sent}")
     return notifications_sent
+
+def build_status_report_text() -> str:
+    """Текстовая версия того, что показывает вкладка «Управление»: кто сейчас
+    в командировке/на больничном/в отпуске/на рабочем месте."""
+    conn = get_db()
+    try:
+        users = conn.execute("SELECT user_id, full_name FROM users ORDER BY full_name").fetchall()
+        trip, sick, vacation, working = [], [], [], []
+        for user in users:
+            rows = conn.execute(
+                "SELECT status, start_date, end_date FROM user_status WHERE user_id = ? ORDER BY start_date DESC",
+                (user['user_id'],)
+            ).fetchall()
+            active = next((r for r in rows if is_status_active(r['start_date'], r['end_date'])), None)
+            if not active:
+                working.append(user['full_name'])
+                continue
+            until = active['end_date'] if active['end_date'] else 'не указано'
+            if "Больничный" in active['status']:
+                sick.append((user['full_name'], until))
+            elif "Командировка" in active['status']:
+                trip.append((user['full_name'], until))
+            elif "Отпуск" in active['status']:
+                vacation.append((user['full_name'], until))
+            else:
+                working.append(user['full_name'])
+    finally:
+        conn.close()
+
+    def fmt_group(items):
+        return "\n".join(f"   • {name} (до {until})" for name, until in items) if items else "   —"
+
+    lines = [f"📋 Статусы сотрудников на {datetime.now().strftime('%d.%m.%Y')}", ""]
+    lines.append(f"✈️ Командировка ({len(trip)}):")
+    lines.append(fmt_group(trip))
+    lines.append("")
+    lines.append(f"🤒 Больничный ({len(sick)}):")
+    lines.append(fmt_group(sick))
+    lines.append("")
+    lines.append(f"🏖️ Отпуск ({len(vacation)}):")
+    lines.append(fmt_group(vacation))
+    lines.append("")
+    lines.append(f"🟢 На рабочем месте ({len(working)}):")
+    lines.append("   " + (", ".join(working) if working else "—"))
+    lines.append("")
+    lines.append(f"Всего сотрудников: {len(users)}")
+    return "\n".join(lines)
+
+def send_weekly_status_report():
+    """Еженедельный отчёт статусов в MAX-группу (аналог вкладки «Управление»)."""
+    if not MAX_GROUP_CHAT_ID:
+        print("ℹ️ Еженедельный отчёт статусов: group_chat_id не настроен, пропуск")
+        return False
+    ok = send_max_message(MAX_GROUP_CHAT_ID, build_status_report_text())
+    print(f"📋 Еженедельный отчёт статусов в MAX-группу: {'отправлен' if ok else 'ошибка отправки'}")
+    return ok
 
 @app.post("/api/v1/auth/login", response_model=LoginResponse)
 async def login(auth_data: LoginRequest):
@@ -1990,6 +2065,13 @@ def _max_bot_handle_message(update: dict):
     body = body.strip()
     if body.startswith("/start"):
         send_max_message(chat_id, _max_welcome_text())
+    elif body.startswith("/id"):
+        send_max_message(
+            chat_id,
+            f"ID этого чата: {chat_id}\n\n"
+            f"Чтобы уведомления об экзаменах дублировались сюда, впишите это значение "
+            f"в config.json → max.group_chat_id и перезапустите бэкенд."
+        )
     elif body.startswith("/link"):
         _max_bot_handle_link_by_code(chat_id, max_user_id, body.split())
     elif body.startswith("/фио") or body.startswith("/иниц"):
@@ -2086,6 +2168,7 @@ async def max_status(current_user=Depends(get_current_user)):
             "linked": linked,
             "bot_username": MAX_BOT_USERNAME,
             "allow_name_link": MAX_ALLOW_NAME_LINK,
+            "group_chat_configured": bool(MAX_GROUP_CHAT_ID),
         }
     finally:
         conn.close()
@@ -2124,6 +2207,15 @@ async def send_max_notifications_manual(current_user=Depends(get_current_user)):
     thread.daemon = True
     thread.start()
     return {"message": "Проверка и отправка уведомлений (email + MAX) запущена в фоновом режиме"}
+
+@app.post("/api/v1/max/weekly-report/send")
+async def send_max_weekly_report_manual(current_user=Depends(require_admin)):
+    """Ручной запуск еженедельного отчёта статусов в MAX-группу (для проверки,
+    не дожидаясь понедельника 10:00)."""
+    if not MAX_GROUP_CHAT_ID:
+        raise HTTPException(status_code=400, detail="max.group_chat_id не настроен в config.json")
+    ok = send_weekly_status_report()
+    return {"message": "Отчёт отправлен" if ok else "Ошибка отправки отчёта", "success": ok}
 
 
 @app.get("/")
@@ -2167,11 +2259,27 @@ def start_scheduler():
         name=f'Ежедневная отправка уведомлений в {send_hour:02d}:{send_minute:02d}',
         replace_existing=True
     )
-    
+
+    if MAX_WEEKLY_REPORT_ENABLED:
+        scheduler.add_job(
+            func=send_weekly_status_report,
+            trigger=CronTrigger(
+                day_of_week=MAX_WEEKLY_REPORT_DAY,
+                hour=MAX_WEEKLY_REPORT_HOUR,
+                minute=MAX_WEEKLY_REPORT_MINUTE,
+            ),
+            id='weekly_status_report',
+            name=f'Еженедельный отчёт статусов в MAX-группу ({MAX_WEEKLY_REPORT_DAY} {MAX_WEEKLY_REPORT_HOUR:02d}:{MAX_WEEKLY_REPORT_MINUTE:02d})',
+            replace_existing=True
+        )
+
     scheduler.start()
     print(f"📅 Планировщик уведомлений ЗАПУЩЕН!")
     print(f"   • Отправка КАЖДЫЙ ДЕНЬ в {send_hour:02d}:{send_minute:02d}")
     print(f"   • Дни уведомлений: {NOTIFY_DAYS}")
+    print(f"   • Дни уведомлений в MAX-группу: {sorted(MAX_GROUP_NOTIFY_DAYS, reverse=True)}")
+    if MAX_WEEKLY_REPORT_ENABLED:
+        print(f"   • Еженедельный отчёт статусов в MAX-группу: {MAX_WEEKLY_REPORT_DAY} в {MAX_WEEKLY_REPORT_HOUR:02d}:{MAX_WEEKLY_REPORT_MINUTE:02d}")
     print(f"   • Работает в фоне, не зависит от активности пользователей")
     
     atexit.register(lambda: scheduler.shutdown() if scheduler else None)
