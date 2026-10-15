@@ -221,7 +221,7 @@ CREATE TABLE notification_logs (
 |-------|------|----------|
 | POST | `/notifications/send` | Ручной запуск email-уведомлений (только admin) — `check_and_send_notifications_sync()`, включает и MAX, если привязан |
 | POST | `/notifications/test-push` | Тестовый FCM push текущему пользователю |
-| POST | `/notifications/broadcast` | Push-рассылка всем/выбранным пользователям (admin), пишет запись в `notification_logs` |
+| POST | `/notifications/broadcast` | Рассылка произвольного текста всем (admin): push на все устройства + личные MAX-сообщения привязанным аккаунтам + копия в групповой чат MAX (`max.group_chat_id`, если настроен); пишет запись в `notification_logs` |
 | GET | `/notifications/log` | Журнал уведомлений (для дравера-колокольчика в UI) |
 | DELETE | `/notifications/log/{notif_id}` | Удалить запись журнала |
 | POST | `/fcm-token` | Сохранить FCM-токен устройства текущего пользователя в `fcm_tokens` |
@@ -355,7 +355,7 @@ start_max_bot()            # Запуск фонового потока приё
 
 ## FCM Push
 
-Реализовано и активно: `firebase_admin` инициализируется при старте модуля через `serviceAccountKey.json` в корне проекта (если файла нет — приложение не падает, просто печатает предупреждение и push молча не работает). Токены устройств копятся в `fcm_tokens` (`POST /fcm-token`), отправка — `send_push_to_user()` → `send_fcm_push()` (Firebase Admin SDK, `messaging.send`). `check_and_send_notifications_sync()` шлёт push параллельно с email/MAX на каждый порог дней, плюс есть ручной `/notifications/test-push` и массовый `/notifications/broadcast` (admin).
+Реализовано и активно: `firebase_admin` инициализируется при старте модуля через `serviceAccountKey.json` в корне проекта (если файла нет — приложение не падает, просто печатает предупреждение и push молча не работает). Токены устройств копятся в `fcm_tokens` (`POST /fcm-token`), отправка — `send_push_to_user()` → `send_fcm_push()` (Firebase Admin SDK, `messaging.send`). `check_and_send_notifications_sync()` шлёт push параллельно с email/MAX на каждый порог дней, плюс есть ручной `/notifications/test-push` и массовый `/notifications/broadcast` (admin) — последний рассылает произвольный текст из админки сразу по трём каналам: push на все устройства, личные MAX-сообщения привязанным аккаунтам и копия в групповой чат MAX (`max.group_chat_id`, без порогов дней — уходит всегда, если настроен).
 
 Firebase-проект: `uaiss-4862a` (Project Number: `85171952119`)
 

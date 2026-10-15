@@ -859,7 +859,12 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
         for chat_id, user_id in max_targets:
             if send_max_message(chat_id, f"{body.title}\n\n{body.message}", user_id=user_id):
                 max_sent += 1
-        print(f"✅ Broadcast: {sent}/{len(tokens)} устройств (push), {max_sent}/{len(max_targets)} MAX")
+        group_sent = (
+            send_max_message(MAX_GROUP_CHAT_ID, f"{body.title}\n\n{body.message}")
+            if MAX_GROUP_CHAT_ID else False
+        )
+        print(f"✅ Broadcast: {sent}/{len(tokens)} устройств (push), {max_sent}/{len(max_targets)} MAX, "
+              f"группа={'да' if group_sent else 'нет'}")
 
     thread = Thread(target=_send_all)
     thread.daemon = True
@@ -869,10 +874,12 @@ async def broadcast_push(body: BroadcastRequest, current_user=Depends(get_curren
                      user_id=None, user_name=None,
                      sent_by=current_user["user_id"], sent_by_name=admin_name)
 
+    group_part = " + группа MAX" if MAX_GROUP_CHAT_ID else ""
     return {
         "sent": len(tokens),
         "max_sent": len(max_targets),
-        "message": f"Рассылка запущена: {len(tokens)} устройств (push) + {len(max_targets)} MAX-аккаунтов",
+        "group_sent": bool(MAX_GROUP_CHAT_ID),
+        "message": f"Рассылка запущена: {len(tokens)} устройств (push) + {len(max_targets)} MAX-аккаунтов{group_part}",
     }
 
 @app.get("/api/v1/notifications/log")
